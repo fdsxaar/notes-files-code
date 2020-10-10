@@ -1,0 +1,3 @@
+1.hashmap可能发生键冲突，要用链表处理
+
+2.log.Fatal终结的是goroutine还是主进程

@@ -1,0 +1,14 @@
+第六章 
+Unfortunately, object-relational mapping frameworks make it easy to accidentally
+write code that performs unsafe read-modify-write cycles instead of using atomic
+operations provided by the database [38].
+
+//commutative atomic operations,并发原子增量？
+However, if there is enough spare capacity, and if contention between transactions is
+not too high, optimistic concurrency control techniques tend to perform better than
+pessimistic ones. Contention can be reduced with commutative atomic operations:
+for example, if several transactions concurrently want to increment a counter, it
+doesn’t matter in which order the increments are applied (as long as the counter isn’t
+read in the same transaction), so the concurrent increments can all be applied
+without conflicting.
+

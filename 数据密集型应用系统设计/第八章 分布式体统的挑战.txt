@@ -1,0 +1,465 @@
+CHAPTER 8
+The Trouble with Distributed Systems
+
+Anything that can go wrong will go wrong
+
+1. Faults and Partial Failures
+When you are writing a program on a single computer, it normally behaves in a fairly
+predictable way: either it works or it doesn’t
+
+This is a deliberate choice in the design of computers: if an internal fault occurs, we
+prefer a computer to crash completely rather than returning a wrong result, because
+wrong results are difficult and confusing to deal with. Thus, computers hide the fuzzy
+physical reality on which they are implemented and present an idealized system
+model that operates with mathematical perfection. A CPU instruction always does
+the same thing; if you write some data to memory or disk, that data remains intact
+and doesn’t get randomly corrupted. This design goal of always-correct computation
+goes all the way back to the very first digital computer
+
+When you are writing software that runs on several computers, connected by a network,
+the situation is fundamentally different. In distributed systems, we are no
+longer operating in an idealized system model—we have no choice but to confront
+the messy reality of the physical world
+
+In a distributed system, there may well be some parts of the system that are broken in
+some unpredictable way, even though other parts of the system are working fine. This
+is known as a partial failure. The difficulty is that partial failures are nondeterministic:
+
+This nondeterminism and possibility of partial failures is what makes distributed systems
+hard to work with [5].
+
+1.1 Cloud Computing and Supercomputing
+With these philosophies come very different approaches to handling faults. In a
+supercomputer, a job typically checkpoints the state of its computation to durable
+storage from time to time. If one node fails, a common solution is to simply stop the
+entire cluster workload. After the faulty node is repaired, the computation is restarted
+from the last checkpoint [7, 8]. Thus, a supercomputer is more like a single-node
+computer than a distributed system: it deals with partial failure by letting it escalate
+into total failure—if any part of the system fails, just let everything crash (like a kernel
+panic on a single machine)
+
+Large datacenter networks are often based on IP and Ethernet, arranged in Clos
+topologies to provide high bisection bandwidth [9]. Supercomputers often use
+specialized network topologies, such as multi-dimensional meshes and toruses
+[10], which yield better performance for HPC workloads with known communication
+patterns.
+
+If we want to make distributed systems work, we must accept the possibility of partial
+failure and build fault-tolerance mechanisms into the software. In other words, we
+need to build a reliable system from unreliable components. (As discussed in “Reliability”
+on page 6, there is no such thing as perfect reliability, so we’ll need to understand
+the limits of what we can realistically promise.)
+
+The fault handling must be part of the software design
+
+It is important to consider a wide range of possible faults—even fairly unlikely ones—and
+to artificially create such situations in your testing environment to see what happens.
+In distributed systems, suspicion, pessimism, and paranoia pay off
+
+2. 不可靠的网络 Unreliable Networks
+As discussed in the introduction to Part II, the distributed systems we focus on in this
+book are shared-nothing systems: i.e., a bunch of machines connected by a network.
+The network is the only way those machines can communicate—we assume that each
+machine has its own memory and disk, and one machine cannot access another
+machine’s memory or disk (except by making requests to a service over the network).
+
+Shared-nothing is not the only way of building systems, but it has become the dominant
+approach for building internet services, for several reasons: it’s comparatively
+cheap because it requires no special hardware, it can make use of commoditized
+cloud computing services, and it can achieve high reliability through redundancy
+across multiple geographically distributed datacenters.
+
+2.1现实中的网路故障 Network Faults in Practice
+It may make sense to deliberately trigger network problems and
+test the system’s response (this is the idea behind Chaos Monkey; see “Reliability” on
+page 6).
+
+2.2 检测故障 Detecting Faults
+If you want to be sure that a request was successful, you
+need a positive response from the application itself [24].
+
+2.3超时与无限期的延迟 Timeouts and Unbounded Delays
+网络拥塞与排队 Network congestion and queueing 
+the variability of packet delays on computer networks is most often
+due to queueing [25]:
+
+In virtualized environments, a running operating system is often paused for tens
+of milliseconds while another virtual machine uses a CPU core. During this time,
+the VM cannot consume any data from the network, so the incoming data is
+queued (buffered) by the virtual machine monitor [26], further increasing the
+variability of network delays.
+
+Some latency-sensitive applications, such as videoconferencing and Voice over IP
+(VoIP), use UDP rather than TCP. It’s a trade-off between reliability and variability
+of delays: as UDP does not perform flow control and does not retransmit lost packets,
+it avoids some of the reasons for variable network delays (although it is still susceptible
+to switch queues and scheduling delays).
+UDP is a good choice in situations where delayed data is worthless.
+
+
+In such environments, you can only choose timeouts experimentally: measure the
+distribution of network round-trip times over an extended period, and over many
+machines, to determine the expected variability of delays. Then, taking into account
+your application’s characteristics, you can determine an appropriate trade-off
+between failure detection delay and risk of premature timeouts.
+
+Even better, rather than using configured constant timeouts, systems can continually
+measure response times and their variability (jitter), and automatically adjust timeouts
+according to the observed response time distribution. This can be done with a
+Phi Accrual failure detector [30], which is used for example in Akka and Cassandra
+[31]. TCP retransmission timeouts also work similarly [27]
+
+2.4 同步与异步网络 Synchronous Versus Asynchronous Networks
+it’s interesting to compare datacenter networks to the traditional
+fixed-line telephone network (non-cellular, non-VoIP), which is extremely
+reliable: delayed audio frames and dropped calls are very rare. A phone call requires a
+constantly low end-to-end latency and enough bandwidth to transfer the audio samples
+of your voice
+
+This kind of network is synchronous: even as data passes through several routers, it
+does not suffer from queueing, because the 16 bits of space for the call have already
+been reserved in the next hop of the network. And because there is no queueing, the
+maximum end-to-end latency of the network is fixed. We call this a bounded delay.
+
+//电话电路分配固定的槽位，不用排队，tcp/ip带宽可变
+网络延迟是否可预测 Can we not simply make network delays predictable?
+Note that a circuit in a telephone network is very different from a TCP connection: a
+circuit is a fixed amount of reserved bandwidth which nobody else can use while the
+circuit is established, whereas the packets of a TCP connection opportunistically use
+whatever network bandwidth is available. You can give TCP a variable-sized block of
+data (e.g., an email or a web page), and it will try to transfer it in the shortest time
+possible. While a TCP connection is idle, it doesn’t use any bandwidth.
+
+If datacenter networks and the internet were circuit-switched networks, it would be
+possible to establish a guaranteed maximum round-trip time when a circuit was set
+up. However, they are not: Ethernet and IP are packet-switched protocols, which suffer
+from queueing and thus unbounded delays in the network. These protocols do
+not have the concept of a circuit.
+
+Why do datacenter networks and the internet use packet switching? The answer is
+that they are optimized for bursty traffic. A circuit is good for an audio or video call,
+which needs to transfer a fairly constant number of bits per second for the duration
+of the call. On the other hand, requesting a web page, sending an email, or transferring
+a file doesn’t have any particular bandwidth requirement—we just want it to
+complete as quickly as possible.
+
+Consequently, there’s no “correct” value for timeouts—they need
+to be determined experimentally
+
+3. 不可靠的时钟 Unreliable Clocks 
+Moreover, each machine on the network has its own clock, which is an actual hardware
+device: usually a quartz crystal oscillator. These devices are not perfectly accurate,
+so each machine has its own notion of time, which may be slightly faster or slower than 
+on other machines. It is possible to synchronize clocks to some degree:
+the most commonly used mechanism is the Network Time Protocol (NTP), which
+allows the computer clock to be adjusted according to the time reported by a group of
+servers [37]. The servers in turn get their time from a more accurate time source,
+such as a GPS receiver
+
+3.1 单调时钟与墙上时钟 Monotonic Versus Time-of-Day Clocks
+墙上时钟 Time-of-day clocks
+clock_gettime(CLOCK_REALTIME) on Linuxv and System.currentTimeMillis()
+in Java
+
+Time-of-day clocks are usually synchronized with NTP, which means that a timestamp
+from one machine (ideally) means the same as a timestamp on another
+machine. However, time-of-day clocks also have various oddities, as described in the
+next section. In particular, if the local clock is too far ahead of the NTP server, it may
+be forcibly reset and appear to jump back to a previous point in time. These jumps, as
+well as the fact that they often ignore leap seconds, make time-of-day clocks unsuitable
+for measuring elapsed time
+
+单调时钟 Monotonic clocks
+A monotonic clock is suitable for measuring a duration (time interval), such as a
+timeout or a service’s response time.
+clock_gettime(CLOCK_MONOTONIC) on Linux and System.nanoTime() in Java.
+
+
+In particular, it makes no
+sense to compare monotonic clock values from two different computers, because they
+don’t mean the same thing.
+
+
+On a server with multiple CPU sockets, there may be a separate timer per CPU,
+which is not necessarily synchronized with other CPUs. Operating systems compensate
+for any discrepancy and try to present a monotonic view of the clock to application
+threads, even as they are scheduled across different CPUs. However, it is wise to
+take this guarantee of monotonicity with a pinch of salt [40].
+
+By default, NTP allows the clock rate to be speeded
+up or slowed down by up to 0.05%
+
+In a distributed system, using a monotonic clock for measuring elapsed time (e.g.,
+timeouts) is usually fine, because it doesn’t assume any synchronization between different
+nodes’ clocks and is not sensitive to slight inaccuracies of measurement.
+
+3.2 时钟同步与准确性 Clock Synchronization and Accuracy 
+//全部
+//总之，时钟不可靠
+
+3.3 依赖同步的时钟 Relying on Synchronized Clocks 
+Thus, if you use software that requires synchronized clocks, it is essential that you
+also carefully monitor the clock offsets between all the machines. Any node whose
+clock drifts too far from the others should be declared dead and removed from the
+cluster. Such monitoring ensures that you notice the broken clocks before they can
+cause too much damage.
+
+//多个节点上的时钟不一定同步
+用时间戳排序 Timestamps for ordering events
+Could NTP synchronization be made accurate enough that such incorrect orderings
+cannot occur? Probably not, because NTP’s synchronization accuracy is itself limited
+by the network round-trip time, in addition to other sources of error such as quartz
+drift. For correct ordering, you would need the clock source to be significantly more
+accurate than the thing you are measuring (namely network delay).
+
+So-called logical clocks [56, 57], which are based on incrementing counters rather
+than an oscillating quartz crystal, are a safer alternative for ordering events (see
+“Detecting Concurrent Writes” on page 184). Logical clocks do not measure the time
+of day or the number of seconds elapsed, only the relative ordering of events
+(whether one event happened before or after another). In contrast, time-of-day and
+monotonic clocks, which measure actual elapsed time, are also known as physical
+clocks. We’ll look at ordering a bit more in “Ordering Guarantees” on page 339.
+
+时钟的置信区间 Clock readings have a confidence interval
+You may be able to read a machine’s time-of-day clock with microsecond or even
+nanosecond resolution. But even if you can get such a fine-grained measurement,
+that doesn’t mean the value is actually accurate to such precision. In fact, it most
+likely is not—as mentioned previously, the drift in an imprecise quartz clock can
+easily be several milliseconds, even if you synchronize with an NTP server on the
+local network every minute. With an NTP server on the public internet, the best possible
+accuracy is probably to the tens of milliseconds, and the error may easily spike
+to over 100 ms when there is network congestion [57].
+Thus, it doesn’t make sense to think of a clock reading as a point in time
+
+The uncertainty bound can be calculated based on your time source. If you have a
+GPS receiver or atomic (caesium) clock directly attached to your computer, the
+expected error range is reported by the manufacturer. If you’re getting the time from
+a server, the uncertainty is based on the expected quartz drift since your last sync
+with the server, plus the NTP server’s uncertainty, plus the network round-trip time
+to the server (to a first approximation, and assuming you trust the server).
+
+The uncertainty bound can be calculated based on your time source. If you have a
+GPS receiver or atomic (caesium) clock directly attached to your computer, the
+expected error range is reported by the manufacturer. If you’re getting the time from
+a server, the uncertainty is based on the expected quartz drift since your last sync
+with the server, plus the NTP server’s uncertainty, plus the network round-trip time
+to the server (to a first approximation, and assuming you trust the server).
+Unfortunately, most systems don’t expose this uncertainty: for example, when you
+call clock_gettime(), the return value doesn’t tell you the expected error of the
+timestamp, so you don’t know if its confidence interval is five milliseconds or five
+years.
+
+An interesting exception is Google’s TrueTime API in Spanner [41], which explicitly
+reports the confidence interval on the local clock
+
+全局快照的同步时钟 Synchronized clocks for global snapshots
+However, when a database is distributed across many machines, potentially in multiple
+datacenters, a global, monotonically increasing transaction ID (across all partitions)
+is difficult to generate, because it requires coordination. The transaction ID
+must reflect causality: if transaction B reads a value that was written by transaction A,
+then B must have a higher transaction ID than A—otherwise, the snapshot would not
+be consistent. With lots of small, rapid transactions, creating transaction IDs in a distributed
+system becomes an untenable bottleneck.vi
+
+vi. There are distributed sequence number generators, such as Twitter’s Snowflake, that generate approximately
+monotonically increasing unique IDs in a scalable way (e.g., by allocating blocks of the ID space to
+different nodes). However, they typically cannot guarantee an ordering that is consistent with causality,
+because the timescale at which blocks of IDs are assigned is longer than the timescale of database reads and
+writes. See also “Ordering Guarantees” on page 339.
+
+//用时钟同步，Google spanner 
+Using clock synchronization for distributed transaction semantics is an area of active
+research [57, 61, 62]. These ideas are interesting, but they have not yet been implemented
+in mainstream databases outside of Google
+
+//在分布式系统中，如果某个节点的代码依赖于时钟，则可能出现错误，因为执行该代码的线程可能会在
+//任意时刻被挂起
+3.4 进程暂停 Process Pauses 
+A node in a distributed system must assume that its execution can be paused for a
+significant length of time at any point, even in the middle of a function. During the
+pause, the rest of the world keeps moving and may even declare the paused node
+dead because it’s not responding. Eventually, the paused node may continue running,
+without even noticing that it was asleep until it checks its clock sometime later.
+
+//飞机、火箭、汽车；实时系统需要特定的环境支持，有其自身的限制
+响应时间保证Response time guarantees
+there is a specified deadline by which the software must
+respond; if it doesn’t meet the deadline, that may cause a failure of the entire system.
+These are so-called hard real-time systems.
+
+限制垃圾回收的影响 Limiting the impact of garbage collection
+An emerging idea is to treat GC pauses like brief planned outages of a node, and to
+let other nodes handle requests from clients while one node is collecting its garbage.
+If the runtime can warn the application that a node soon requires a GC pause, the
+application can stop sending new requests to that node, wait for it to finish processing
+outstanding requests, and then perform the GC while no requests are in progress.
+This trick hides GC pauses from clients and reduces the high percentiles of response
+time [70, 71]. Some latency-sensitive financial trading systems [72] use this approach.
+
+A variant of this idea is to use the garbage collector only for short-lived objects
+(which are fast to collect) and to restart processes periodically, before they accumulate
+enough long-lived objects to require a full GC of long-lived objects [65, 73]. One
+node can be restarted at a time, and traffic can be shifted away from the node before
+the planned restart, like in a rolling upgrade (see Chapter 4).
+
+4.知识、真相、谎言 Knowledge, Truth, and Lies
+//有些晦涩
+In a distributed system, we can state the assumptions we are making about the behavior (the
+system model) and design the actual system in such a way that it meets those assumptions.
+Algorithms can be proved to function correctly within a certain system model.
+This means that reliable behavior is achievable, even if the underlying system model
+provides very few guarantees.
+
+4.1 真相由多数决定 The Truth Is Defined by the Majority
+node cannot necessarily trust its own judgment of a situation
+
+fencling 令牌 Fencing tokens
+When using a lock or lease to protect access to some resource, such as the file storage
+in Figure 8-4, we need to ensure that a node that is under a false belief of being “the
+chosen one” cannot disrupt the rest of the system. A fairly simple technique that achieves
+this goal is called fencing
+
+Let’s assume that every time the lock server grants a lock or lease, it also returns a
+fencing token, which is a number that increases every time a lock is granted (e.g.,
+incremented by the lock service). We can then require that every time a client sends a
+write request to the storage service, it must include its current fencing token
+
+If ZooKeeper is used as lock service, the transaction ID zxid or the node version
+cversion can be used as fencing token. Since they are guaranteed to be monotonically
+increasing, they have the required properties [74].
+
+Note that this mechanism requires the resource itself to take an active role in checking
+tokens by rejecting any writes with an older token than one that has already been
+processed—it is not sufficient to rely on clients checking their lock status themselves.
+For resources that do not explicitly support fencing tokens, you might still be able
+work around the limitation (for example, in the case of a file storage service you
+could include the fencing token in the filename). However, some kind of check is
+necessary to avoid processing requests outside of the lock’s protection.
+
+4.2 拜占庭故障  
+Distributed systems problems become much harder if there is a risk that nodes may
+“lie” (send arbitrary faulty or corrupted responses)—for example, if a node may claim
+to have received a particular message when in fact it didn’t. Such behavior is known
+as a Byzantine fault, and the problem of reaching consensus in this untrusting environment
+is known as the Byzantine Generals Problem [77].
+
+A system is Byzantine fault-tolerant if it continues to operate correctly even if some
+of the nodes are malfunctioning and not obeying the protocol, or if malicious attackers
+are interfering with the network
+
+In a system with multiple participating organizations, some participants may
+attempt to cheat or defraud others. In such circumstances, it is not safe for a
+node to simply trust another node’s messages, since they may be sent with malicious
+intent. For example, peer-to-peer networks like Bitcoin and other blockchains
+can be considered to be a way of getting mutually untrusting parties to
+agree whether a transaction happened or not, without relying on a central
+authority [83].
+
+In peer-to-peer networks, where there is no such central
+authority, Byzantine fault tolerance is more relevant
+
+若的谎言形式 Weak forms of lying
+//防范常见的故障
+Network packets do sometimes get corrupted due to hardware issues or bugs in
+operating systems, drivers, routers, etc. Usually, corrupted packets are caught by
+the checksums built into TCP and UDP, but sometimes they evade detection [85,
+86, 87]. Simple measures are usually sufficient protection against such corruption,
+such as checksums in the application-level protocol.
+• A publicly accessible application must carefully sanitize any inputs from users,
+for example checking that a value is within a reasonable range and limiting the
+size of strings to prevent denial of service through large memory allocations. An
+internal service behind a firewall may be able to get away with less strict checks
+on inputs, but some basic sanity-checking of values (e.g., in protocol parsing
+[85]) is a good idea.
+• NTP clients can be configured with multiple server addresses. When synchronizing,
+the client contacts all of them, estimates their errors, and checks that a
+majority of servers agree on some time range. As long as most of the servers are
+okay, a misconfigured NTP server that is reporting an incorrect time is detected
+as an outlier and is excluded from synchronization [37]. The use of multiple
+servers makes NTP more robust than if it only uses a single server.
+
+4.3 理论系统模型与现实 System Model and Reality
+Algorithms need to be written in a way that does not depend too heavily on the
+details of the hardware and software configuration on which they are run. This in
+turn requires that we somehow formalize the kinds of faults that we expect to happen
+in a system. We do this by defining a system model, which is an abstraction that
+describes what things an algorithm may assume.
+With regard to timing assumptions, three system models are in common use:
+Synchronous model
+The synchronous model assumes bounded network delay, bounded process pauses,
+and bounded clock error.The synchronous model is
+not a realistic model of most practical systems, because (as discussed in this
+chapter) unbounded delays and pauses do occur.
+
+Partially synchronous model
+Partial synchrony means that a system behaves like a synchronous system most of
+the time, but it sometimes exceeds the bounds for network delay, process pauses,
+and clock drift [88].
+
+Asynchronous model
+In this model, an algorithm is not allowed to make any timing assumptions—in
+fact, it does not even have a clock (so it cannot use timeouts). Some algorithms
+can be designed for the asynchronous model, but it is very restrictive
+
+Moreover, besides timing issues, we have to consider node failures. The three most
+common system models for nodes are:
+Crash-stop faults
+This means that the node may suddenly stop
+responding at any moment, and thereafter that node is gone forever—it never
+comes back.
+
+Crash-recovery faults
+We assume that nodes may crash at any moment, and perhaps start responding
+again after some unknown time
+
+Byzantine (arbitrary) faults
+Nodes may do absolutely anything, including trying to trick and deceive other
+nodes, as described in the last section.
+
+For modeling real systems, the partially synchronous model with crash-recovery
+faults is generally the most useful model
+
+算法的正确性 Correctness of an algorithm
+To define what it means for an algorithm to be correct, we can describe its properties
+
+An algorithm is correct in some system model if it always satisfies its properties in all
+situations that we assume may occur in that system model.
+
+安全性与活性 Safety and liveness
+liveness properties
+often include the word “eventually” in their definition
+
+Safety is often informally defined as nothing bad happens, and liveness as something
+good eventually happens
+
+The actual definitions
+of safety and liveness are precise and mathematical [90]:
+If a safety property is violated, we can point at a particular point in time at which
+it was broken (for example, if the uniqueness property was violated, we can identify
+the particular operation in which a duplicate fencing token was returned).
+After a safety property has been violated, the violation cannot be undone—the
+damage is already done.
+• A liveness property works the other way round: it may not hold at some point in
+time (for example, a node may have sent a request but not yet received a
+response), but there is always hope that it may be satisfied in the future (namely
+by receiving a response).
+
+An advantage of distinguishing between safety and liveness properties is that it helps
+us deal with difficult system models. For distributed algorithms, it is common to
+require that safety properties always hold, in all possible situations of a system model
+[88]. That is, even if all nodes crash, or the entire network fails, the algorithm must
+nevertheless ensure that it does not return a wrong result (i.e., that the safety properties
+remain satisfied).
+However, with liveness properties we are allowed to make caveats: for example, we
+could say that a request needs to receive a response only if a majority of nodes have
+not crashed, and only if the network eventually recovers from an outage. The definition
+of the partially synchronous model requires that eventually the system returns to
+a synchronous state—that is, any period of network interruption lasts only for a finite
+duration and is then repaired.
+
+Mapping system models to the real world
+
+scalability is not the only reason
+for wanting to use a distributed system. Fault tolerance and low latency (by placing
+data geographically close to users) are equally important goals, and those things cannot
+be achieved with a single node.

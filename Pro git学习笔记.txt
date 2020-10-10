@@ -1,0 +1,978 @@
+﻿时的github显示层级目录：每个文件夹需包含文件，不能只包含目录
+第一章 第二章Git基础
+
+1.三种状态 committed-已提交，modified-已修改，staged-已暂存
+
+2.三种目录：working dir-工作目录，staging area-暂存目录，git dir-git仓库
+
+3. git config #配置文件
+  git config --list 检查配置信息
+  git config --global xxx 设定全局变量
+  cat ~/.gitconfig 保存配置文件
+  .git/config会覆盖 ~/.gitconfig
+  Windows下 C:\\Users\\$USER\\.gitconfig
+ git config <key>#检查某一项配置
+ git config user.name
+ git config --global core.editor emacs #配备文本编辑器
+
+ 4.git help <verb>/git <verb> --help/man git-<verb>
+   git help config /git config --help /man git-config
+   irc.freenode.net(失效)，https://freenode.net/
+
+5.git clone <仓库> <目录>
+
+2.2 Git 基础 - 记录每次更新到仓库
+    1.已跟踪的文件是指那些被纳入了版本控制的文件，在上一次快照中有它们的记录，在工作一段时间后，
+    它们的状态可能处于未修改，已修改或已放入暂存区。工作目录中除已跟踪文件以外的所有其它文件
+    都属于未跟踪文件，它们既不存在于上次快照的记录中，也没有放入暂存区(在野的)。初次克隆某个仓
+    库的时候，工作目录中的所有文件都属于已跟踪文件，并处于未修改状态  
+
+    2.git status #检查文件的状态，是否未跟踪
+
+    3.git add <file>/<dir> #跟踪文件，进入暂存状态；如果是 dir，遍历该目下的所有文件；
+    可以用它开始跟踪新文件，或者把已跟踪的文件放到暂存区，还能用于合并时把有冲突的文件标
+    记为已解决状态等；每次修改文件后，记得 git add到暂存区域
+
+    4.git status -s/--short 
+        M 靠右的M,已修改但没有放入暂存区
+      M   靠左的M，已修改且已放入暂存区
+      MM  两个MM，在工作区被修改后提交到暂存区，又在工作区被修改了
+      A  新添加到暂存取的文件
+      ?? 新添加的未跟踪文件
+    
+    5.忽略文件，创建 .gitignore,格式如下，p26页例子
+    https://github.com/github/gitignore
+        1.所有空行或者以 ＃ 开头的行都会被 Git 忽略
+        2.可以使用标准的 glob 模式匹配
+           使用两个星号（*) 表示匹配任意中间目录，比如`a/**/z` 可以匹配 a/z, a/b/z 或 `a/b/c/z`等
+        3.匹配模式可以以（/）开头防止递归
+        4.匹配模式可以以（/）结尾指定目录
+        5.要忽略指定模式以外的文件或目录，可以在模式前加上惊叹号（!）取反
+    6.git diff #查看已修改但是未暂存的文件差异
+      git diff --cached/--staged #查看已暂存，但是下次要提交的内容
+      git difftool #可视化工具
+    
+    7.git commit -m "text..."
+      git commit -v #显示更多信息
+      git commit #弹出编辑器
+
+    8.跳过暂存，git commit -a -m "text" #提交所有已追踪过的文件，即使文件并没有暂存
+
+    9.从暂存区域中移除文件 git rm -f file #会删除本地文件
+                         git rm --cached file #保留本地文件
+            第一步：rm file
+            第二部： git rm file 
+
+            git rm <pattern match> 
+            git \*~ #删除以~结尾的文件，*前加反斜线，是git glob匹配模式，与shell不同
+    10.重命名/移动文件  git mv file1 file2 #
+            相当于三条命令：
+                mv file1 file2 
+                rm file1
+                git add file2 
+
+2.3 查看提交历史
+    1.git log -p # 显示每次提交的差异
+      git log -p -n # 最近n次 
+      
+      git log --stat #显示简略信息
+
+      git log --pretty=oneline #单行显示
+      git log --pretty=format #多种格式，p37
+      p38，常用选项
+    2.限制输出长度,p39<常用的git log输出选项>
+      git log 后能指定路径名
+
+2.4 撤消操作
+    1.撤消上一次的提交，用本次提交代替 git commit --amend 
+
+    2.取消暂存的文件 git reset HEAD <file> 
+
+    3.撤消文件修改，到上一次修改时样子，git checkout -- file #如果修改
+    过的文件已经git add了，则先要git reset HEAD <file> ，再git checkout
+
+2.5  远程仓库的使用
+    1.查看远程仓库 git clone 后 git remote 显示 origin 
+     git remote -v #指定选项 -v，会显示需要读写远程仓库使用的 Git 保存的简写与其对应的 URL
+
+    2.git remote -v #显示拥有多个远程仓库的仓库
+
+    3.添加远程仓库 git remote add <shortname> <url>
+     git remote add pb https//github.com/cilamoo/lgit #需在一个仓库目录下执行命令，pb代替URL 
+
+    4.从远程仓库中抓取与拉取
+        git fetch [remote-name] #访问远程仓库，从中拉取所有你还没有的数据,并不会合并分支
+        git clone 命令会自动设置本地 master 分支跟踪克隆的远程仓库的 master 分支（或不管是什么名字的默
+      认分支）。 运行 git pull 通常会从最初克隆的服务器上抓取数据并自动尝试合并到当前所在的分支。 
+    
+    5.推送到远程仓库 git push origin master #必须是第一个推送的人
+
+    6.查看远程库 如果想要查看某一个远程仓库的更多信息，可以使用 git remote show [remote-name] 命令
+
+    7.git remote rename repo1 repo2 #重命名
+      git remote rm repo #删除
+
+2.6 基础 - 打标签
+    1.列出标签
+      git tag #按字母顺序列出标签
+      git tag -l "pattern" #列出特定模式的标签
+    
+    2.创建标签
+      lightweight 轻量标签-一个特定提交的引用
+      annotated 附注标签-存储在git数据库中的一个完整对象，包含打标签者的名字、电子邮件地址、日期时间、用于验证的标签信息
+
+    3.附注标签
+        git tag -a <tag number> -m <注释文本> #打一个附注文本标签
+        git show <tag> #显示标签
+    4.轻量标签
+        git tag <tag number>
+
+    5.后期打标签
+        git tag -a <git number> <提交版本的部分或全部hash>
+
+    6.共享标签
+      git push origin <tag number> 
+      git push --tags origin <tag numbers> #推送多个标签>
+
+2.7 Git别名
+    1.设置别名
+        git config --global alias.<别名>  <待替换的命令>
+        git config --global alias.co checkout #执行git co 就相当于 git checkout
+
+        如果执行外部命令，前面加!
+        git config --global alias.visual '!gitk' #外部工具
+
+C3 Git分支
+3.1分支简介
+   1.分支简介
+   git commit，计算每个子目录的校验和，存储这些树对象；会创建commit object，该对象
+   具有元数据和一个指向根工程目录的指针；
+   现在总共有5个对象：三个blob文件；一个树，列出了目录内容，指定哪些文件被存储blobs,
+   以及含有指向根树和原数据的指针的commit对象
+   stageing 文件会为每个文件计算一个校验和
+   
+   2.创建分支
+    git branch <分支> #这会在当前所在的提交对象上创建一个指针
+    Git 的分支，其实本质上仅仅是指向提交对象的可变指针
+    HEAD-指向当前所在的本地分支
+    git log --oneline --decorate#查看各个分支所指的对象
+   
+   2.分支切换 branch、checkout 和 commit，在切换分支时，一定要注意你工作目录里的文件会被改变，
+   Git 会重置你的工作目录，使其看起来像回到了你在那个分支上最后一次提交的样子。 Git 会自动添加、
+   删除、修改文件以确保此时你的工作目录和这个分支最后一次提交时的样子一模一样
+
+    git checkout <branch> #切换到分支branch 
+    如果切换到分支 branch,修改文件并commit，再切换回master，那么现在有了两个分支，两个分支的文件不同
+
+    运行 git log --oneline --decorate --graph --all ，它会输出你的提交历史、各个分支的指向以及项目的分支分叉情况
+
+  3.由于 Git 的分支实质上仅是包含所指对象校验和（长度为 40 的 SHA-1 值字符串）的文件，所以它的创建和销毁
+    都异常高效。 创建一个新分支就相当于往一个文件中写入 41 个字节（40 个字符和 1 个换行符），如此的简单
+    能不快吗？
+
+2.分支的新建与合并，创建一个分支后，修改，然后再合并，合并之后可以删除分支
+    1.新建分支，git branch 命令仅仅 创建 一个新分支，并不会自动切换到新分支中去
+        git branch -b <branch> #创建并切换到分支branch，等价于2条命令，git branch <branch> -> git checkout <branch>
+        切换分支前，最好提交所有修改
+
+    2.分支的合并 git merge <iss53> 
+      合并提交，有不止一个父提交
+      git branch -d <branch> #删除分支 
+
+    3.遇到冲突时的分支合并，如果你在两个不同的分支中，对同一个文件的同一个部分进行了不同的修改，Git 就没法干净的合并它们。
+     git status #会显示出冲突信息
+    
+     git mergetool#用该工具管理冲突
+    
+
+3.3 分支管理
+    1.git branch #列出所有分支
+      git branch -v #如果需要查看每一个分支的最后一次提交
+
+    2.git branch --merged 与 --no-merged 这两个有用的选项可以过滤这个列表中已经合并或尚未合并到当前分支的分支。
+      可以删除掉已经合并的分支，不能删除未合并的分支，但能用 git branch -D <branch> -D 选项强制删除
+
+3.4 分支开发工作流
+    1.长期分支，可以看作类似于CPU的流水线，
+
+    2.特性分支，短期分支
+
+3.5 远程分支
+    1.远程分支概念
+        1.git ls-remote [remote] 来显式地获得远程引用的完整列表，或者通过 git remote show [remote] 获得远程分支的更多信息
+        git fetch origin refs/pull/958/head #拉取特定分支引用
+        fetch = +refs/pull/*/head:refs/remotes/origin/pr/* #修改配置文件进行拉取
+
+        2.名词解释，远程跟踪分支是对远程分支的状态的引用，是本地引用，不能移动，（Remote-tracking branches are references to
+        the state of remote branches）；当你每次联网时，Git自动移动它；
+
+        远程分支的形式为 <remote>/<branch>,如，check origin/master branch，检查最后一次与服务器连接时，分支的状态
+
+        origin/master是远程跟踪分支
+        master是本地分支，是我们编辑的起点
+
+        3.git clone -o <name> <url> #更改默认的origin名字
+
+        4.本地分支与远程跟踪分支可以分叉
+
+        5.git fetch origin #从远程分支同步数据
+
+    2.推送
+        git push <remote> <branch> 
+        git push origin serverfix:awesomebranch #更改名字，来将本地的 serverfix 分支推
+        送到远程仓库上的 awesomebranch分支，<在服务器端看不见serverfix>
+        git config --global credential.helper cache #将用户名和密码缓存在内存中几分钟
+
+        (上下文）git fetch origin时，本地不会自动生成一份可编辑的副本（拷贝）。 换一句话说，这种情况下，
+        不会有一个新的 serverfix 分支 - 只有一个不可以修改的 origin/serverfix 指针。可以运行
+        git merge origin/serverfix 将这些工作合并到当前所在的分支；
+
+         如果想要在自己的serverfix 分支上工作，可以将其建立在远程跟踪分支之上：
+         git checkout -b serverfix origin/serverfix #-b选项，用origin/serverfix分支建立一个serverfix分支
+
+    3.跟踪分支
+        1.跟踪分支：clone远程跟踪分支时，会检出一个本地分支（它所跟踪的分支叫上游分支），与远程分支有直接关系；在
+        跟踪分支上，用git pull命令，可以自动fetch和merge
+        如，本地 mastr分支跟踪 origin/master
+        
+        2. git checkout --track origin/serverfix #设定当前分支跟踪origin/serverfix，检出origin/serverfix分支
+            git checkout serverfix #简写命令
+            git checkout -b sf origin/serverfix #更改跟踪远程分支的本地分支的名字
+        
+        git checkout -b  iss53 #想要新建一个分支并同时切换到那个分支上，你可以运行一个带有 -b 参数的 git checkout 命令
+        git branch -u/--set-upstream-to <remote>/<branch> #在当前分支下，为刚pull下来的分支设定跟踪分支
+       
+        git merge @{u} 代替 git merge origin/master #用@{upstream} 或 @{u}引用跟踪分支
+
+        git branch -vv #查看本地缓存的关于跟踪分支的情况
+        git fetch --all； git branch -vv #查看最新的关于分支的情况
+
+        3.拉取
+        git fetch只获取数据差异数据，并不合并修改目录文件，git merge才合并，先调用git fetch 再调用git merge；
+        git pull 合并两个操作
+
+        4.删除
+        git push origin --delete <branch> 
+
+3.6 变基 Rebasing,提取出自共同祖先以来的变化，再应用，就像重放一样
+    1.变基的基本操作
+        操作顺序：
+        git checkout experiment #切换到当前目录
+        git rebase master #变基到master
+        git checkout mastr #切换到master分支
+        git merge experiment #进行一次快速合并
+
+        (83页图) 它的原理是首先找到这两个分支（即当前分支 experiment、变基操作的目标基底分支 master）的最近共同祖
+        先 C2，然后对比当前分支相对于该祖先的历次提交，提取相应的修改并存为临时文件，然后将当前分支指向目
+        标基底 C3, 最后以此将之前另存为临时文件的修改依序应用。（译注：写明了 commit id，以便理解，下同）
+
+        你在查看一个经过变基的分支的历史记录时会发现，尽管实际的开发工作是并行的，但它们看上去就像是串行的
+        一样，提交历史是一条直线没有分叉。
+
+        你首先在自己的分支里进行开发，当开发完成时你需要先将你的代码变基到origin/master 上，然后再向主项
+        目提交修改。 这样的话，该项目的维护者就不再需要进行整合工作，只需要快进合并便可。
+
+    2.更有趣的重放，提取某一分支的改变，重放到特定分支
+        (84页图）git rebase --onto master server client #取出 client 分支，找出处于 client 分支和 server 
+        分支的共同祖先之后的修改，然后把它们在 master 分支上重放一遍
+
+        git checkout master #切换到master分支
+        git merge client #快速合并
+    
+    使用 git rebase [basebranch] [topicbranch] 命令可以直接将特性分支（即本例中的 server）变基到
+    目标分支（即 master）上。这样做能省去你先切换到server 分支，再对其执行变基命令的多个步骤,但是，
+    不在topicbranch上执行变基，若执行这个命令，会自动切换到topicbranch分支，最后还是要切换到basebranch
+    执行git merge命令
+        
+    3.变基的风险
+        Do not rebase commits that exist outside your repository，不要变基已提交仓库的提交；
+        把变基命令当作是在推送前清理提交使之整洁的工具，并且只在从未推送至共用仓库的提交上执行变基命
+        令，就不会有事。
+
+        【总的原则是，只对尚未推送或分享给别人的本地修改执行变基操作清理历史，从不对已推送至别处的提交执行变
+          基操作】
+
+        修改变基带来的风险:用变基解决变基础，git fetch -> git rebase <origin>/master 
+        或者 git pull --rebase 
+        git config --global pull.rebase true #设定后直接用 git pull 
+
+
+C4.服务器上的Git
+    1.协议
+        本地协议-文件共享系统
+        HTTP/S协议-提供用户名验证，匿名访问
+        SSH协议-压缩传输数据，访问数据，必须验证
+        Git协议-任何人均可访问，适合访问量很大的项目，需要监听一个端口，有一个守护进程
+
+    2.在服务器上搭建Git
+        1.导出裸仓库，移动到服务器的特定目录，给别的写作者添加SSH访问权限，能访问该仓库
+        2.如果只是和几个人在一个私有项目上合作的话，仅仅 是一个 SSH 服务器和裸仓库就足够了
+    授权管理：
+        3.SSH连接，提供访问权限给团队成员
+            1.adduser,为每个人建立连接许可
+            2.在主机上建立一个 git 账户，让每个需要写权限的人发送一个 SSH 公钥，然后将其加入 git 账户的
+            ~/.ssh/authorized_keys 文件
+            3.让 SSH 服务器通过某个 LDAP 服务，或者其他已经设定好的集中授权机制，来进行授权，只要每
+            个用户可以获得主机的 shell 访问权限，任何 SSH 授权机制你都可视为是有效的
+    3.生成SSH公钥
+        1.生成密钥 root/.ssh/id_rsa
+    
+    4.配置服务器
+        1.
+>>>最好看一下SSH<<<
+
+C4 分布式Git
+    1.分布式工作流程
+        1.集中式工作流，有一个中心仓库，有多个开发者，每个开发者向中心仓库push，push前，先pull数据，与自己的仓库合并
+        2.集成管理者工作流，每个开发者有一个主仓库的副本，在副本上修改，通知管理者拉取自己的修改
+        3.司令官和副官，适用于大型，层级管理项目，如Linux内核
+    2.向一个项目贡献,影响因素：活跃贡献者的数量、选择的工作流程、提交权限、外部贡献方法
+        1.提交准则  
+            Documentation/SubmittingPatches，
+            提交前运行git diff --check检查空白错误，
+            git add --patch 来部分暂存文件
+            重写历史
+            提交信息
+
+        2.私有小型团队，图-p122页：你通常在一个特性分支工作一会儿，当它准备好整合时合并回你的 master 分支。当想要共享工作时，
+        如果有改动的话然后抓取并合并 origin/master，最终推送到服务器上的 master 分支
+
+        3.私有管理团队
+            1.<开发者之间可能用邮件通信，互相告知提交>开发者在特性分支上工作，完成修改后，推送该分支到仓库
+             git push -u origin feature;如果开发者与其他人协作，在push分支前，（可能）需要fetch分支，合并，
+             再将自己的修改推送到分支;当所有分支准备好后，告知整合者进程整合
+
+            2.git push -u origin featureB:featureBee #引用，将featureB分支推送到featureBee；-u,这是 --set-upstream 
+            的简写，该标记会为之后轻松地推送与拉取配置分支。
+
+            3.团队中更小一些的子小组可以通过远程分支协作而不必影响或妨碍整个团队的能力是 Git 的一个巨大优势
+        
+        4.派生的公开项目，如GitHub网站上的项目
+            1.克隆主仓库，创建一个特性分支
+            2.fork一个可写的仓库，推送分支到此
+            3.pull request拉取请求，或者git request-pull，将连续输出用邮件发送给维护者
+            The git request-pull command takes the base branch into which you want your topic branch pulled and the Git 
+            repository URL you want them to pull from, and produces a summary of all the changes you’re asking to be pulled
+            4.尽量在分支上工作，变基容易
+            5.通过变基解决冲突
+                git push -f myfork featureA #<可能有歧义>，指定-f选项替换服务器上的featureA，featureA不是origin/master的后代
+                git merge --squash featureB #抽取featureB分支，但是并不创建合并，不会产生父提交
+                --no-commit 选项在默认合并过程中可以用来延迟生成合并提交
+        
+        5.通过邮件的公开项目        
+            1.git format-patch -M origin/master #打印创建的补丁文件名字，-M-查找重命名，不推荐用diff生成补丁
+            2.配置，发送邮件
+
+    3.维护项目
+        1.在特性分支中工作
+        2.应用来自邮件的补丁
+            1.git apply /tmp/patch-ruby-client.patch #全部应用或全部不应用；不推荐用patch -p1；而只有对老式的补丁，你才必须使用 git apply 命令
+            2.git apply --check #检查补丁,若失败，以非零状态退出
+            3.使用am命令应用补丁，git am命令，为mbox而建；用git am产生冲突时，手动编辑文件解决产生的冲突
+             git am 的-3选项有助于解决冲突，进行三方合并
+        3.检出远程分支
+            1.git remote add <仓库> #如派生的公开项目所说，开发者进行了pull request,维护者将这个仓库添加到自己的仓库；这种方式的另一种优点是你可以同时得到提交历史
+            git fetch <仓库> #拉取
+            git checkout -b <new branch> #建立新分支     
+            这种工作模式适用于长期的项目，对于提交频率小的仓库，用邮件更好，git pull适用于对于非持续性的合作
+        
+        4.确定引入了哪些东西
+            1.git log contrib --not master #通过在分支名称前加入 --not 选项，可以排除 master 分支中的提交
+            2.git merge-base contrib master #找出公共祖先
+            3. git diff master...contrib #contrib是我们当前所在的分支，master是我们要去并入的分支；找出contrib与master的共同祖先，    
+            列出contrib自共同祖先的变化
+
+            In the context of the git diff command, you can put three periods after another branch to do a diff 
+            between the last commit of the branch you’re on and its common ancestor with another branch:
+        
+        5.将贡献的工作整合进来
+            1.合并工作流，适合于小项目；如果你的项目非常重要，你可能会使用两阶段合并循环，master分支和develop分支
+            2.大项目合作工作流，如Git项目，master，next,pu(proposed update),maint(maintenance backports)
+            3.变基与拣选工作流
+            git cherry-pick e43a6fd3e94888d76779ad79fb568ed180e5fcdf #挑选一个分支
+            4.Rerere
+                git config --global rerere.enabled true #保存解决合并冲突的方法
+            5.为发布打标签
+                git tag -s v1.5 -m 'my signed 1.5 tag' # -s选项，涉及GPG-signed tag
+            6.生成一个构建号
+                git describe master
+                注意 git describe 命令只适用于有注解的标签（即使用 -a 或 -s 选项创建的标签），所以如果你在使用 git
+                describe 命令的话，为了确保能为标签生成合适的名称，打发布标签时都应该采用加注解的方式
+            7.准备一次发布
+                git archive master --prefix='project/' | gzip > `git describe master`.tar.gz
+                git archive master --prefix='project/' --format=zip > `git describe master`.zip
+            8.制作提交简报
+                使用 git shortlog 命令可以快速生成一份包含从上次发布之后项目新增内容的修改日志（changelog）类文档
+
+C5 github
+    1.账户的创建和配置
+        1.添加密钥 
+            ssh-keygen #生成密钥，添加到GitHub网站 Settings/SSH and GPG keys
+        2.头像
+        3.添加多个邮件
+        4.两部验证，未开启
+   
+    2.对项目做出贡献
+        1.派生（Fork）项目
+        2.GitHub流程
+            1.创建合并请求，因为合并请求在提交后 依然可以加入新的改动 ，它也经常被用来建立团队合作的环境，而不只是在最终阶段使用
+            2.利用合并请求
+            不必总是 Fork
+                有件很重要的事情：你可以在同一个版本库中不同的分支提交合并请求。如果你正在和某人实
+                现某个功能，而且你对项目有写权限，你可以推送分支到版本库，并在 master 分支提交一个
+                合并请求并在此进行代码审查和讨论的操作。不需要进行“Fork”
+        3.合并请求的进阶用法
+            1.将合并请求制作成补丁
+            2.合并请求产生冲突的解决办法，推荐第二种，我们最看重的是历史记录和最后的合并，变基除了给你带来看上去简洁的历史记录，
+              只会让你的工作变得更加困难且更容易犯错
+                1.你可以把你的分支变基到目标分支中去（通常是你派生出的版本库中的 master分支）
+                2.你可以合并目标分支到你的分支中去，如果你想要合并目标分支来让你的合并请求变得可合并，你需要将源版本库添加为一个
+                新的远端，并从远端抓取内容，合并主分支的内容到你的分支中去，修复所有的问题并最终重新推送回你提交合并请求使用的分支
+                
+                如果你一定想对分支做变基并进行清理，你可以这么做，但是强烈建议你不要强行的提交到已经提交了合并请求的分支。如果其
+                他人拉取了这个分支并进行一些修改，你将会遇到 变基的风险 中提到的问题。相对的，将变基后的分支推送到 GitHub 上的
+                一个新分支中，并且创建一个全新的合并请求引用旧的合并请求，然后关闭旧的合并请求。
+            3.引用
+                1.所有的合并请求和议题在项目中都会有一个独一无二的编号
+                2.如果你想要引用任何一个合并请求或议题，你只需要在提交或描述中输入 #<编号> 即可。你也可以指定引用其他版本库的议题或
+                合并请求，如果你想要引用其他人对该版本库的“Fork”中的议题或合并请求，输入 用户名#<编号> ，如果在不同的版本库中，输入 
+                用户名/版本库名#<编号>
+        4.Markdown
+            1.GitHub 风格的 Markdown
+                1.任务列表
+                2.摘录代码
+                3.引用
+                4.emoji
+                5.图片
+            2.                
+    
+    3.维护项目
+        1.创建新的版本库
+            1.访问仓库所用的格式
+                HTTP ： https://github.com/<user>/<project_name> ， SSH ：
+                SHH    git@github.com:<user>/<project_name>
+            2.通常对于公开项目可以优先分享基于 HTTP 的 URL，因为用户克隆项目不需要有一个 GitHub
+              帐号。 如果你分享 SSH URL，用户必须有一个帐号并且上传 SSH 密钥才能访问你的项目。
+              HTTP URL 与你贴到浏览器里查看项目用的地址是一样的。
+        
+        2.添加合作者,给予读写权限
+        3.管理合并请求
+            1.邮件通知
+            git pull <url> patch-1 #无需添加远程仓库，即可合并
+            curl http://github.com/tonychacon/fade/pull/1.patch | git am #爬取数据并应用
+            2.在合并请求上进行合作
+                1.p178图，<最好在本地新建一个分支> 一旦代码符合了你的要求，你想把它合并进来，你可以把代码拉取下来在本地进行合并，也可以用我们之前提到
+                    过的 git pull <url> <branch> 语法，或者把 fork 添加为一个 remote，然后进行抓取和合并
+
+                    对于很琐碎的合并，你也可以用 GitHub 网站上的 “Merge” 按钮。 它会做一个 “non-fast-forward” 合并，
+                    即使可以快进（fast-forward）合并也会产生一个合并提交记录。 就是说无论如何，只要你点击 merge 按钮，
+                    就会产生一个合并提交记
+            3.合并请求引用
+                1.实际上 GitHub 在服务器上把合并请求分支视为一种 “假分支”。 默认情况下你克隆时不会得到它们，但它们
+                还是隐式地存在，你可以很容易地访问到它们。
+
+                2.合并请求的方法
+                第一种：
+                git ls-remote <远端仓库> #列出远端仓库的提交引用
+                 refs/pull/<number>/head #指向这项提交的最后一次修改状态
+                 refs/pull/<number>/merge  #merge时产生的引用
+
+                 git fetch origin refs/pull/<number>/head #获取分支
+                 git merge FETCH_HEAD origin/master  #合并该分支
+
+                第二种：
+                配置.git/config文件
+                [remote "origin"]
+                    url = https://github.com/libgit2/libgit2.git
+                    fetch = +refs/heads/*:refs/remotes/origin/*
+                    fetch = +refs/pull/*/head:refs/remotes/origin/pr/*
+                最后一行告诉 Git： “所有看起来像 refs/pull/123/head 的引用应该在本地版本库像
+                refs/remotes/origin/pr/123 一样存储” 现在，如果你保存那个文件，执行 git fetch获取引用，
+                存储到本地
+                git checkout pr/2 #切换到分支
+
+                3.合并请求之上的合并请求
+        
+        4.提醒和通知
+            1.@合作者/贡献者的名字
+            2.通知页面
+            3.网页通知
+            4.邮件通知
+        5.特殊文件
+        6.README，用于说明代码版本，如何使用等等，GitHub会渲染这个文件，可以加入链接，图片等
+        7.贡献 CONTRIBUTING，另一个 GitHub 可以识别的特殊文件是 CONTRIBUTING 。 如果你有一个任意扩展名的 
+        CONTRIBUTING 文件，当有人开启一个合并请求时 GitHub 会显示指向该文件的连接
+        8.项目管理
+            1.改变默认分支
+            2.移交项目
+
+    4.管理组织，对一个项目共享所有权
+        1.组织的基本知识
+        2.团队
+        3.审计日志
+
+    5.脚本 GitHub
+        1.钩子
+            1.服务
+            2.钩子
+        2.GitHub API
+            1.基本用途，GET基本信息
+                curl https://api.github.com/users/schacon
+                获取模板 curl https://api.github.com/gitignore/templates/Java
+            2.在一个问题上评论
+                1.在applications中生成令牌
+                2.修改 Pull Request 的状态
+
+C7.Git 工具
+    1.选择修订版本
+        1.单个修订版本，SHA-1
+        2.简短的 SHA-1
+            git show <至少commit的前四个数>
+        3.分支引用,指向提交的分支引用
+            git show <branch> #某个分支的最后一次提交对象
+            git rev-parse <branch> #显示分支的SHA-1
+        4.引用日志，日志都是本地记录
+            git reflog 
+            当你在工作时， Git 会在后台保存一个引用日志(reflog)，引用日志记录了最近几个月你的 HEAD 和分支引用所
+            指向的历史。
+
+            每当你的 HEAD 所指向的位置发生了变化，Git 就会将这个信息存储到引用日志这个历史记录里。 通过这些数
+            据，你可以很方便地获取之前的提交历史。 如果你想查看仓库中 HEAD 在五次前的所指向的提交，你可以使用
+            @{n} 来引用 reflog 中输出的提交记录。
+            git show HEAD@{5}
+
+            git show master@{yesterday} #昨天，master分支指向哪个提交
+
+            git log -g <branch> #类似于git log的引用格式的日志
+        5.祖先引用，git log --pretty=format:'%h %s' --graph #按图标输出
+            1.git show HEAD^ #第一个父提交，合并时我们所在的分支
+              git show HEAD^2 #第二父提交，被我们合并的分支
+              git show HEAD~ #第一个父提交
+              git show HEAD~2 #第一父提交的第一父提交
+              git show HEAD~3 #第一父提交的第一父提交的第一父提交
+        6.提交区间
+            1.双点
+                git log master..experiment #在experiment中，而不在mater分支中的提交
+                git log origin/master..HEAD #在你当前分支中而不在远程 origin 中的提交，如..后省略分支，则默认是HEAD
+            2.多点，允许指定多个分支
+                git log refA..refB
+                git log ^refA refB # ^表示，不希望包含在refA中
+                git log refB --not refA # --not表示，不希望包含在refA中
+            指定两个以上分支
+                git log refA refB ^refC
+                git log refA refB --not refC
+            3.三点，类似异或
+                被两个引用中的一个包含但又不被两者同时包含的提交
+                git log master...experiment
+                git log --left-right master...experiment #--left-right，列出属于左侧还是右侧
+
+    2.交互式暂存,git add -i/--interactive，进入交互式终端
+        1.按提示操作，暂存与取消暂存文件,git add -i 可以取消暂存区的状态，类似于git reset HEAD <file>
+        2.暂存补丁，当对文件进行多处修改时，git add -i 选 p      
+           git  reset --patch #还原之前保存的补丁，将文件退回工作目录状态
+           git checkout --patch #丢弃工作目录文件的修改
+           git stash save --patch #储藏到栈上
+
+            快捷命令 git add -p/--patch #启动暂存脚本
+
+    3.<临时离开>,储藏与清理，存储到栈上，同时也储存了git add到暂存区的修改；重新应用储藏时，要切换到正确的目录，并且应用到目标文件时，不会产生冲突
+        1.git stash #储藏暂存区或工作目录内的修改，
+          git stash apply #(恢复）应用最近一个储藏到工作目录内的文件,之后还要git add,git commit
+          git stash apply stash@{2} #指定应用哪一个储藏
+
+          git stash apply --index #如果git stash时，修改在暂存区，则应用储藏到暂存区，之后git commit;如果git stash 时，修改在工作目录，
+          即使用--index选项，也不会应用储藏到暂存区
+          git stash drop stash@{0} #直接移除某个储藏
+          git stash pop #与drop命令不同，该命令应用储藏,执行git add后，才可以从栈上扔掉它
+        
+        2.创造性的储藏
+            git stash --keep-index #不要储藏已经git add到暂存区域的文件
+            git stash -u/--include-untracked #会储藏任何创建的未跟踪文件
+            git stash --patch #Git 不会储藏所有修改过的任何东西，但是会交互式地提示哪些改动想要储
+            藏、哪些改动需要保存在工作目录中
+        
+        3.从储藏创建一个分支
+             git stash branch <branch> #创建一个执行git stash时所在分支的副本，该分支应用了git stash储藏的修改，新创建的分支必须commit跟踪的文件
+             才能进行git checkout,最后git merge 新分支保存的stash
+        4.清理工作目录
+            git clean -f  #删除未跟踪文件
+            git clean -f -d #删除未跟踪目录
+            git clean -f -d #删除未跟踪文件和目录
+            git clean -d -n #列出将被清理的文件和目录
+            默认情况下，git clean 命令只会移除没有忽略的未跟踪文件。 任何与 .gitiignore 或其他忽略文件中的模
+            式匹配的文件都不会被移除。 如果你也想要移除那些文件,用-x
+            git clean -d -n -x #删除临时文件和目录，进行干净删除
+            git clean -x -i #交互式命令貌似不能用?
+    4.签署工作
+        1.GPG 介绍
+            gpg --list-keys #查看是否安装GPG
+            gpg --gen-key #生成密钥
+            git config --global user.signingkey 0A46826A #使用密钥来签署标签与提交
+        2.签署标签
+            git tag -s v1.5 -m 'my signed 1.5 tag' #用-s代替-a
+        3.验证标签,为了验证能正常工作，签署者的公钥需要在你的钥匙链中。
+            git tag -v [tag-name]
+        4.签署提交,-S选项
+            git commit -a -S -m 'signed commit'
+            git log 也有一个 --show-signature 选项来查看及验证这些签名，git log --show-signature -1
+            git log --pretty="format:%h %G? %aN %s" #配置
+            git merge --verify-signatures non-verify #--verify-signatures，如果使用这个选项来合并一个包含未签名或有效的提交的分支时，合并不会生效
+            git merge --verify-signatures signed-branch #If the merge contains only valid signed commits, the merge command will show you 
+            all the signatures it has checked and then move forward with the merge
+            git merge --verify-signatures -S signed-branch #验证合并的分支，并签署合并的提交
+        5.每个人必须签署
+    
+    5.搜索，快速地从据库中浏览代码和提交
+        1.Git Grep
+            1.git grep -n <pattern> #-n选项列出行号
+            git grep --count  #--count,某个文件包含多少个匹配模式   
+            git grep -p <pattern> #匹配的行是属于哪一个方法或者函数
+            --and 标志来查看复杂的字符串组合，也就是在同一行同时包含多个匹配
+            --break 和 --heading
+        2.Git 日志搜索 --git log
+            1.git log -S ZLIB_BUF_MAX --oneline #-S选项，找到 ZLIB_BUF_MAX 常量是什么时候引入的
+              如果你希望得到更精确的结果，你可以使用 -G 选项来使用正则表达式搜索
+              git diff <提交号> #查看变化
+            2.行日志搜索
+                在 git log 后加上 -L 选项即可调用，它可以展示代码中一行或者一个函数的历史
+                git log -L :git_deflate_bound:zlib.c #查看zlib.c中，git_deflate_bound函数的变化历史
+
+    6.重写历史，请勿修改提交到公用仓库的提交
+        1.修改最后一次提交
+            git commit --amend #弹出编辑器，包含最近一次的提交信息，修改保存即可
+            修改一个文件，git add <file>，git commit --amend #拿走当前的暂存区域并使其做为新提交的快照，修改上一次提交说明
+        2.修改多个提交的说明信息
+            git rebase -i HEAD~3 #比如，要修改最近三次提交，则要用HEAD~3,(要修改提交的父提交，涉及四次提交)，在vim中修改，按提示amend
+        3.重新排序/删除提交,直接在vim中移动位置，或删除某一个提交的行
+        4.压缩提交
+            在vim中修改为 squash，会合并squash打头的行和它的上一次所表示的提交，因此，上一行不需要squash
+        5.拆分提交，
+            先git rebase -i HEAD，在脚本中更改pick为edit,再git reset HEAD^2(git reset <某次提交>),修改文件，add并commit
+
+        6.核武器级选项：filter-branch，除非你的项目还没有公开并且其他人没有基于要改写的工作的提交做的工作。
+            1.从每一个提交移除一个文件,filter-branch 是一个可能会用来擦洗整个提交历史的工具。 为了从整个提交历史
+            中移除一个叫做 passwords.txt 的文件，可以使用 --tree-filter 选项给 filter-branch：
+            git filter-branch --tree-filter 'rm -f passwords.txt' #重写提交历史，每个commit的sha1变化了，HEAD被重写，
+            ./git/refs/original/保存原来的分支shal
+            如果想要移除所有偶然提交的编辑器备份文件，可以运行类似 git filter-branch --tree-filter 'rm -f *~' HEAD 的命令;
+            通常一个好的想法是在一个测试分支中做这件事，然后当你决定最终结果是真正想要的，可以硬重置 master 分支。 为了让 
+            filter-branch 在所有分支上运行，可以给命令传递 --all 选项。
+
+            2.使一个子目录做为新的根目录
+                假设已经从另一个源代码控制系统中导入，并且有几个没意义的子目录（trunk、tags 等等）。 如果想要让trunk 子目录作
+                为每一个提交的新的项目根目录，filter-branch 也可以帮助你那么做：
+                git filter-branch --subdirectory-filter trunk HEAD #Git 会自动移除所有不影响子目录的提交
+            
+            3.全局修改邮箱地址
+                git filter-branch --commit-filter
+
+                reset会移动HEAD指向的分支，HEAD伴随所指的分支而移动，而checkout会移动HEAD自身
+
+    7.重置揭密，在代码未提交到公共仓库之前，使用重置功能
+        1.三棵树，树指文件的集合，p233图
+            HEAD-上一次提交的快照
+            索引，暂存区域，预期的下一次提交，Git 将上一次检出到工作目录中的所有文件填充到索引区，它们看起来就像最初被检出时的样子
+            工作目录，沙盒
+        2.工作流程，看图，提交后，HEAD、index、工作目录指向相同的状态
+            切换分支或克隆的过程类似。 当检出一个分支时，它会修改 HEAD 指向新的分支引用，将 索引 填充为该次提
+            交的快照，然后将 索引 的内容复制到 工作目录中。
+            Switching branches or cloning goes through a similar process. When you checkout a branch, it changes 
+            HEAD to point to the new branch ref, populates your Index with the snapshot of that commit, then copies 
+            the contents of the Index into your Working Directory.
+
+        3.reset机制提供了一种在过去穿梭的方法，最好在未push到与别人共享的仓库之前使用，<图>，回退commit，
+            三个选项：--soft退回commit之前，--mixed回退到add之前（没有此选项，reset的默认行为是回退到add之前），--hard回退到修改工作目录之前
+            1.移动HEAD，
+                git reset --soft #回滚到git commit之前，Does not touch the index file or the working tree at all (but resets the head to <commit>, 
+                just like all modes do). This leaves all your changed files "Changes to be committed", as git status would put it.
+                【reset会移动HEAD指向的分支，moves the branch that HEAD is pointing to.】
+                它本质上是撤销了上一次 git commit
+            2.更新索引，撤消暂存区，恢复到git add之前的状态
+                git reset --mixed HEAD~ #指定--mixed会暂停在这里，即使不指定这个选项，也会暂停在这里，撤消暂存区是默认行为，
+            3.更新工作目录(--hard),撤消工作目录，和索引区的状态一致
+                --hard选项，覆盖了工作目录中的文件，在这种特殊情况下，我们的 Git 数据库中的一个提交内还留有该文件的 v3 版本，我们可以通过 reflog 来找回
+                它。但是若该文件还未提交，Git 仍会覆盖它从而导致无法恢复。
+                git reflog 获取commit, git reset <commit>恢复
+
+        4.通过路径来重置
+            1.若指定了一个路径，reset 将会跳过第 1 步，并且将它的作用范围限定为指定的文件或文件集合
+            2.git reset file.txt #将file.txt从HEAD复制到暂存区，取消之前暂存的文件（这其实是 git reset --mixed HEAD file.txt 的简写形
+              式，因为你既没有指定一个提交的 SHA-1 或分支，也没有指定 --soft 或 --hard），
+            3.git reset eb43bf file.txt #应用一个具体的提交到暂存区
+        5.压缩提交
+            git reset --soft HEAD~2 #回退到指定的提交点，再git commit ,此时提交的是当前暂存区的状态，取消了HEAD 和HEAD~2之间的提交
+        6.checkout ，提供了与reset一样，操纵三棵树，会使得HEAD detached
+            1.不带路径，git checkout <branch> #与git reset --hard branch相似，但是
+                1.对工作目录是安全的
+                2.图250，reset会移动HEAD指向的分支，HEAD伴随所指的分支而移动，而checkout会移动HEAD自身
+            2.带路径
+                1.与git reset <branch> file，用特定分支的文件来更新暂存区，但是checkout会覆盖工作目录中的文件，执行效果就和
+                git reset --hard <branch> file（如果 reset 允许你这样运行的话）
+                2. 同 git reset 和 git add 一样，checkout 也接受一个 --patch 选项，允许你根据选择一块一块地
+                     恢复文件内容。
+
+    8.高级合并
+        1.合并冲突，首先，在做一次可能有冲突的合并前尽可能保证工作目录是干净的，recursive策略
+            1.中止一次合并 
+                git merge --abort #简单地退出合并，返回到合并前的状态
+                也可以运行 git reset --hard HEAD 回到之前的状态或其他你想要恢复的状态
+            2.忽略空白，<？>
+                如果你看到在一次合并中有大量的空白问题，你可以简单地中止它并重做一次，这次使用 -Xignore-all-space 
+                或 -Xignore-space-change 选项
+                The first option ignores whitespace completely when comparing lines, the second treats 
+                sequences of one or more whitespace characters as equivalent.
+            3.手动处理文件再合并
+                1.首先，我们进入到了合并冲突状态。 然后我们想要我的版本的文件，他们的版本的文件（从我们将要合并入的
+                  分支）和共同的版本的文件（从分支叉开时的位置）的拷贝。 然后我们想要修复任何一边的文件，并且为这个
+                 单独的文件重试一次合并。获得这三个文件版本实际上相当容易。 Git 在索引中存储了所有这些版本，在 “stages” 
+                 下每一个都有一个数字与它们关联。 Stage 1 是它们共同的祖先版本，stage 2 是你的版本，stage 3 来自于 
+                 MERGE_HEAD，即你将要合并入的版本（“theirs”）
+                用 ls-files -u 底层命令来得到这些文件的 Git blob 对象的实际 SHA-1值
+
+                 $ git show :1:hello.rb > hello.common.rb
+                 $ git show :2:hello.rb > hello.ours.rb
+                 $ git show :3:hello.rb > hello.theirs.rb
+                修复文件，合并之：
+                 <git merge-file>命令
+                 $ git merge-file -p hello.ours.rb hello.common.rb hello.theirs.rb > hello.rb
+                git diff -b
+
+                git diff --ours #查看合并提交的结果与我们的分支的差异
+                git diff --theirs -b #合并结果与并入的文件相比，-b选项去掉空白
+                git dff --base -b  #合并结果与base版本比较
+            4.检出冲突，手动修改
+                git checkout --conflict=diff hello.rb #修改合并冲突的输出显示，能显示出base版本
+                git checkout --ours/--theirs hello.rb #直接丢弃某一边 
+                git config --global merge.conflictstyle diff3 #设置diff3为冲突的显示方式
+            5.查看与合并冲突相关的日志，查看导致合并冲突出现的原因
+                git log --oneline --left-right HEAD...MERGE_HEAD #三点语法，显示两个分支的提交历史
+                git log --oneline --left-right --merge #--merge选项，只显示接触了合并冲突的提交
+                git log -p选项，If you run that with the -p option instead, you get just the diffs
+                 to the file that ended up in conflict.
+            6.组合式差异格式，
+                当你在合并冲突状态下运行 git diff 时，只会得到现在还在冲突状态的区别
+
+        2.撤消合并
+            1.修复引用，此方法的最佳应用情景是，还未push合并提交到远程仓库
+                git reset --hard HEAD~ 
+            2.还原提交
+                git revert -m 1 HEAD #一个合并提交有多个父提交，-m -1标签指出哪一个父节点是主线
+                git rever ^M #<看图>，撤消之前还原的合并
+        
+        3.其他类型的合并
+            1.Our or Theirs Preference，考虑一边
+                git merge -Xours/-Xtheirs <branch> #当有合并冲突时，仅从选择一边的内容
+                git merge-file --ours 
+
+                git merge -s ours mundo #作一次假的合并，不考虑被合并进入的分支，他只将当前分支的代码当作结果记录下来    
+                
+                p267页，最后一段
+            2.子树合并，两个项目合并，将一个项目并入另一个项目的子目录
+                git remote add rack_remote https://github.com/rack/rack #添加远程仓库
+                git checkout -b rack_branch rack_remote/master #创建一个分支，跟踪
+
+                git read-tree --prefix=rack/ -u rack_branch #拉取到master的一个子目录
+               
+                当rack项目有更新时，pull之,再合并到master
+                git checkout rack_branch
+                git pull 
+                git checkout master 
+                git merge --squash -s recursive -Xsubtree=rack rack_branch #提取变化信息，加入到master
+
+                查看 rack 子目录和 rack_branch 分支的差异
+                git diff-tree -p rack_branch #使用 git diff-tree 来和你的目标分支做比较
+
+                将你的 rack 子目和最近一次从服务器上抓取的 master 分支进行比较
+                git diff-tree -p rack_remote/master
+
+    9.Rerere,reuse recorded     
+        1.开启
+            $ git config --global rerere.enabled true 
+            也通过在特定的仓库中创建 .git/rr-cache 目录来开启它
+            git rerere status #显示记录的合并前状态
+            git rerere diff #解决方案的当前状态
+            git checkout --conflict=merge hello.rb #重新恢复到冲突时候的文件状态
+            git rerere #应用
+
+    10.使用 Git 调试
+        1.文件标注,文件标注通常是最好用的工具。 它展示了文件中每一行最后一次修改的提交
+            git blame -L 12,22 simplegit.rb #-L 选项限制行
+            ^4832fe2, ^表示，在仓库的首次提交中就已经引入了这commit，自那之后，再没有变化过
+
+            git blame -C -L 141,153 GITPackUpload.m #-C选项，C，Git 会分析你正在标注的文件，并且尝试找出文件中从别
+            的地方复制过来的代码片段的原始出处。
+            This is really useful. Normally, you get as the original commit the commit where you copied the code over, 
+            because that is the first time you touched those lines in this file.     
+            Git tells you the original commit where you wrote those lines, even if it was in another file
+        
+        2.二分查找
+            首先执行 git bisect start 来启动，接着执行 git bisect bad来告诉系统当前你所在的提交是有问题的。 
+            然后你必须告诉 bisect 已知的最后一次正常状态是哪次提交，使用 git bisect good [good_commit]
+
+            git bisect start
+            git bisect bad
+            git bisect good v1.0
+            git检出中间的那次提交，我们检查是否有问题，git bisect good/bad告知git检测是否有问题，继续二分查找
+            当你完成这些操作之后，你应该执行 git bisect reset 重置你的 HEAD 指针到最开始的位置
+
+            查找错误的自动化脚本
+            首先，你设定好项目正常以及不正常所在提交的二分查找范围。 你可以通过 bisect start 命令的参数来设定
+            这两个提交，第一个参数是项目不正常的提交，第二个参数是项目正常的提交：
+            $ git bisect start HEAD v1.0
+            $ git bisect run test-error.sh
+            也可以用make/make tests等工具
+    
+    11.子模块，子模块允许你将一个 Git 仓库作为另一个 Git 仓库的子目录。 它能让你将另一个仓库克隆到自己的项目中，同时还保持提交的独立；
+        进入子模块目录，可以修改、提交，但是只有已提交的修改才能推送到主项目
+        1.开始使用子模块
+            我们首先将一个已存在的 Git 仓库添加为正在工作的仓库的子模块。 你可以通过在 git submodule add 命令
+            后面加上想要跟踪的项目 URL 来添加新的子模块。默认情况下，子模块会将子项目放到一个与仓库同名的目录中，
+            如果你想要放到其他地方，那么可以在命令结尾添加一个不同的路径
+            git submodule add https://github.com/chaconinc/DbConnector 
+
+            首先应当注意到新的 .gitmodules 文件。 该配置文件保存了项目 URL 与已经拉取的本地目录之间的映射
+
+            如果有多个子模块，该文件中就会有多条记录。 要重点注意的是，该文件也像 .gitignore 文件一样受到（通
+            过）版本控制。 它会和该项目的其他部分一同被拉取推送。 这就是克隆该项目的人知道去哪获得子模块的原
+            因。
+
+            执行 git configsubmodule.<DbConnector>.url <私有URL> 来覆盖.gitignoreurl中url选项的值
+
+            将子模块（子目录）看作仓库中的一个特殊提交。
+            160000 模式, 这是 Git 中的一种特殊模式，它本质上意味着你是将一次提交记作一
+            项目录记录的，而非将它记录成一个子目录或者一个文件
+
+        2.克隆含有子模块的项目
+            1.在克隆这样的项目时，默认会包含该子模块目录，但其中还没有任何文件，解决方法有：
+                1).git submodule init 用来初始化本地配置文件，而 git submodule update 则从该
+                项目中抓取所有数据并检出父项目中列出的合适的提交。
+                2).如果给 git clone 命令传递 --recursive 选项，它就会自动初始化并更新仓
+                  库中的每一个子模块
+            2.在包含子模块的项目上工作
+                1. 拉取子模块的上游修改
+                进入子模块目录，fetch and merge，再返回到主项目目录，git add/commit，push到主项目
+
+                返回到主项目并运行 git diff --submodule，就会看到子模块被更新的同时获得了一个包含新
+                添加提交的列表。 如果不想每次运行 git diff 时都输入 --submodle，那么可以将 diff.submodule 设
+                置为 “log” 来将其作为默认行为
+                git config --global diff.submodule log
+
+                git submodule update--remote，Git 将会进入子模块然后抓取并更新，不用手动进入子模块。
+                $ git submodule update --remote DbConnector #此命令默认会假定你想要更新并检出子模块仓库的 master 分支
+                ，若想更新特定分支，可以在 .gitmodules 文件中设置（这样其他人也可以跟踪它），也可以只在本地的 .git/config 文件中设置
+                git config -f .gitmodules submodule.DbConnector.branch stable #如果不用 -f .gitmodules 选项，那么它只会为你做修改。
+
+                $ git config status.submodulesummary 1 # 配置选项，使得 git status 显示子模块的更改摘要
+
+                当运行 git submodule update --remote 时，Git 默认会尝试更新所有子模块，所以如果有很多子模块的
+                话，你可以传递想要更新的子模块的名字
+
+                2.在子模块上工作
+                    到目前为止，当我们运行 git submodule update 从子模块仓库中抓取修改时，Git 将会获得这些改动并更新
+                    子目录中的文件，但是会将子仓库留在一个称作 “游离的 HEAD” 的状态。 这意味着没有本地工作分支（例如
+                    “master”）跟踪改动。 所以你做的任何改动都不会被跟踪。
+
+                    <首先，让我们进入子模块目录然后检出一个分支？>
+
+                    git submodle update --remote --merge/--rebase 
+
+                3.发布子模块的变动
+                    git push  --recurse-submodules=check/on-demand #检查所有子模块是否已推送，check选项只进行检查，并不尝试推送子模块中的改变
+                    on-demand尝试推送
+                
+                4.合并子模块改动？
+
+                5.子模块技巧
+                    1.子模块遍历
+                    git submodule foreach "git stash" #在每一个子模块中运行git stash命令 
+                    2.有用的别名
+                    $ git config alias.sdiff '!'"git diff && git submodule foreach 'git diff'"
+                    $ git config alias.spush 'push --recurse-submodules=on-demand'
+                    $ git config alias.supdate 'submodule update --remote --merge'
+
+                6.子模块的问题
+                    1.删除分支中未跟踪的子模块
+                        如果你创建一个新分支，在其中添加一个子模块，之后切换到没有该子模块的分支上时，你仍然会有一个还未跟踪的子模块目录;
+                        git clean -fdx #删除子模块 
+                        如果你移除它然后切换回有那个子模块的分支，需要运行 submodule update --init 来重新建立和填充。
+
+                    2.将一个子目录变为子模块前，务必取消暂存该目录
+                    git rm -r CryptoLibrary 
+                    如果尝试切换回的分支中那些文件还在子目录而非子模块中时，则会的到一个错误，需要强制切换
+                    git checkout -f master #强制切换
+                    
+                    <特定问题>
+                    当你切换回来之后，因为某些原因你得到了一个空的 CryptoLibrary 目录，并且 git submodule update
+                    也无法修复它。 你需要进入到子模块目录中运行 git checkout . 来找回所有的文件。 你也可以通过
+                    submodule foreach 脚本来为多个子模块运行它。要特别注意的是，近来子模块会将它们的所有 Git 数据保存
+                    在顶级项目的 .git 目录中，所以不像旧版本的Git，摧毁一个子模块目录并不会丢失任何提交或分支。
+
+    12.打包，git bundle 命令会将 git push 命令所传输的所有内容打包成一个二进制文件
+        $ git bundle create repo.bundle HEAD master
+        然后你就会有一个名为 repo.bundle 的文件，该文件包含了所有重建该仓库 master 分支所需的数据。 在使
+        用 bundle 命令时，你需要列出所有你希望打包的引用或者提交的区间。 如果你希望这个仓库可以在别处被克
+        隆，你应该像例子中那样增加一个 HEAD 引用
+
+        git clone repo.bundle repo #克隆出目录
+
+        打包时，指出提交区间 origin/master..master 或者 master ^origin/master
+        git bundle create commits.bundle master ^9a466c5
+
+        git bundle verify ../commits.bundle #验证合法性，是否有共同的祖先
+        git bundle list-heads ../commits.bundle #查看可以被导入的分支
+        git fetch ../commits.bundle master:other-master #取出master分支，导入到other-master
+
+    13.替换，当项目历史很长时，可用来截断项目，建立新的起点
+        1.在某一个提交历史上新建一个分支，将该分支推送到一个新建的仓库，这样，就保存了该分支之前的提交，创建了一个历史<旧历史，有很长的commit
+          git branch history <commit> 
+        
+        2.以某一个提交为基础，创建另一个新的提交历史，再将此提交之后的提交变基到这个基础提交,然后将新生成的提交推送到一个新的仓库，创建了具有新起点的项目
+        echo 'get history from blah blah blah' | git commit-tree 9c68fdc^{tree}
+        git rebase --onto 622e88 9c68fdc
+        
+        3.拉取新的提交历史仓库，并将旧的历史项目add进来，用一个提交替换掉新仓库的一个提交，重新将新旧两个项目黏合起来
+        $ git replace 81a708d c6e1e95
+        
+        4.注意，<参考上下文>，请记住，81a708d 真正的父提交是 622e882 占位提交，而非呈现的 9c68fdce 提交
+        git for-each-ref #显示新旧项目合并信息
+
+    14. 凭证存储
+        1.不同实现不同存储方式
+         git config --global credential.helper cache --timeout <seconds> #默认是15min,可以用timeout选项设定过期时间
+         git config --global credential.helper store --file ~/.my-credentials #以明文形式存储到磁盘上，永不过期，
+         用store设定存储路径，默认为~/.git-credentials
+        2.底层实现
+            git credential fill
+            git credential-store --file ~/git.store store
+            git credential-store --file ~/git.store get
+        3.自定义凭证缓存
+
+
+C8.自定义Git
+    1.配置Git
+     Git查找自定义配置的顺序
+        1）系统级， /etc/config，git config --system 读取该文件
+        2）用户 ， ~/.gitconfig 或 ~/.config/git/config,git config global命令读取之
+        3）特定仓库，.git/config ,下层的配置会覆盖上层的配置
+
+    2.
+
+C10.Git内部工作原理--内容寻址文件系统，content-addressable filesystem
+    1.底层命令和高层命令,Plumbing and Porcelain
+        ls -F1 #按行显示
+        四个条目很重要：
+        HEAD 文件--points to the branch you currently have checked out,
+        （尚待创建的）index 文件，--stores your staging area information
+        和 objects 目录--stores all the content for your database
+        refs 目录, stores pointers into commit objects in that data (branches, tags, remotes and more)
+    2.Git对象--键值对数据库
+        git init test 
+        cd test 
+        find .git/objects 
+        find .git/objects -type f #普通文件类型
+        echo 'test content' | git hash-object -w --stdin #-w存储文件， --stdin从标准输入读取
+        git cat-file -p d670460b4b4aece5915caf5c68d12f560a9fe3e4 #-p,自动判断文件类型，cat-file命令--取回数据
+        git hash-object -w <文件> #将文件写入 
+        git cat-file -t 1f7a7a472abf3dd9643fd615f6da379c4acb3e3a #显示存储的对象类型
+        
+    
