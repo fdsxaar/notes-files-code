@@ -1,0 +1,39 @@
+MapReduce: Simplified Data Processing on Large Clusters
+
+Abstract
+
+MapReduce is a programming model and an associated
+implementation for processing and generating large
+data sets. Users specify a map function that processes a
+key/value pair to generate a set of intermediate key/value
+pairs, and a reduce function that merges all intermediate
+values associated with the same intermediate key.
+
+#用这种functional 风格编写的程序是并行的
+Programs written in this functional style are automatically
+parallelized and executed on a large cluster of commodity
+machines
+
+1 Introduction
+#MapReduce的缘由
+The issues of how to parallelize the computation, distribute the data, and handle
+failures conspire to obscure the original simple computation
+with large amounts of complex code to deal with
+these issues.
+
+#MapRudec抽象来源于Lisp的Map和Reduce原语
+Our abstraction is inspired by the map and reduce primitives present in Lisp
+and many other functional languages. 
+
+#对每个输入记录应用Map，对共享相同键的值应用Reduce
+We realized that most of our computations involved applying a map operation
+to each logical record in our input in order to compute a set of intermediate 
+key/value pairs, and then applying a reduce operation to all the values that shared
+the same key, in order to combine the derived data appropriately.
+
+#允许large并行计算，用re-execution作为容错机制
+Our use of a functional model with user-specified map and reduce operations allows us 
+to parallelize large computations easily and to use re-execution as the primary mechanism
+for fault tolerance.
+
+2 Programming Model

@@ -1,0 +1,58 @@
+Replicated state machines are typically implemented using a replicated log.
+Each log contains the same commands in the same order.
+Keeping the replicated log consistent is the job of the consensus algorithm.
+Once commands are properly replicated, they are said to be committed.
+
+Consensus algorithms for practical systems typically have the following properties:
+  They ensure safety (never returning an incorrect result) under all non-Byzantine conditions,
+including network delays, partitions, and packet loss, duplication, and reordering.
+  They are fully functional (available) as long as any majority of the servers are operational
+and can communicate with each other and with clients. Thus, a typical cluster of five servers
+can tolerate the failure of any two servers. Servers are assumed to fail by stopping; they may
+later recover from state on stable storage and rejoin the cluster.
+  They do not depend on timing to ensure the consistency of the logs: faulty clocks and extreme
+message delays can, at worst, cause availability problems. That is, they maintain safety under
+an asynchronous model [71], in which messages and processors proceed at arbitrary speeds.
+  In the common case, a command can complete as soon as a majority of the cluster has responded
+to a single round of remote procedure calls; a minority of slow servers need not
+impact overall system performance.
+
+	
+Chapter 3
+Basic Raft algorithm
+we used two techniques that are generally applicable. The first technique is the well-known approach of
+problem decomposition;
+Our second approach was to simplify the state space by reducing the number of states to consider,
+making the system more coherent and eliminating nondeterminism where possible. Specifically,
+logs are not allowed to have holes, and Raft limits the ways in which logs can become
+inconsistent with each other. Although in most cases we tried to eliminate nondeterminism, there
+are some situations where nondeterminism actually improves understandability. In particular, randomized
+approaches introduce nondeterminism, but they tend to reduce the state space by handling
+all possible choices in a similar fashion (“choose any; it doesn’t matter”). We used randomization
+to simplify the Raft leader election algorithm.
+
+3.2 Raft overview
+Given the leader approach, Raft decomposes the consensus problem into three relatively independent
+subproblems.
+Leader election: a new leader must be chosen when starting the cluster and when an existing
+leader fails (Section 3.4).
+  Log replication: the leader must accept log entries from clients and replicate them across the
+cluster, forcing the other logs to agree with its own (Section 3.5).
+  Safety: the key safety property for Raft is the State Machine Safety Property in Figure 3.2:
+if any server has applied a particular log entry to its state machine, then no other server may
+apply a different command for the same log index.
+
+Raft guarantees that each of these properties is true at all times:
+Election Safety
+At most one leader can be elected in a given term. x3.4
+Leader Append-Only
+A leader never overwrites or deletes entries in its log; it only appends new entries. x3.5
+Log Matching
+If two logs contain an entry with the same index and term, then the logs are identical
+in all entries up through the given index. x3.5
+Leader Completeness
+If a log entry is committed in a given term, then that entry will be present in the logs
+of the leaders for all higher-numbered terms. x3.6
+State Machine Safety
+If a server has applied a log entry at a given index to its state machine, no other server
+will ever apply a different log entry for the same index. x3.6.3
