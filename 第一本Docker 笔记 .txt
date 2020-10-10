@@ -1,0 +1,317 @@
+#Docker 容器重新启动的时候，会沿用docker run 命令时指定的参数来运行，因此我
+们的容器重新启动后会运行一个交互式会话shell 。此外，也可以用docker attach 命令，
+重新附着到该容器的会话上
+docker attach json_borne_container 
+
+#创建守护式窑器
+docker run --name daemon_dave -d ubuntu /bin/sh -c "while true;do echo hello world; sleep 1;done"
+
+#启动容器
+docker start daemon_dave
+
+#创建一个容器， 但是并不运行它。
+docker create 
+
+#获取容器的日志
+docker logs daemon_dave
+
+#跟踪日志
+docker logs -f daemon_dave
+#最后十条 
+docker logs --tail 10 daemon_dave
+#最新日志
+docker logs --tail 0 -f daemon_dave
+#使用-t 标志为每条日志项加上时间戳
+ docker logs --tail 0 -ft daemon_dave
+
+#自Docker 1.6 开始，也可以控制Docker 守护进程和容器所用的日志驱动，这可以通过
+#--log-driver 来实现。可以在启动Docker 守护进程或者执行docker run 命令时
+#使用。
+#有好几个选项，包括默认的json - file ， json-file 也为我们前面看到的docker
+#logs 命令提供了基础。
+#其他可用的选项还包括syslog . 该选项将禁用docker logs 命令， 并且将所有容器
+#的日志输出都重定向到Syslog 。可以在启动Docker 守护进程时指定该选项，将所有容器的
+#日志都输出到Syslog ，或者通过docker run对个别的容器进行日志重定向输出。
+sudo docker run --log-driver="syslog" --name daemon_dwayne -d
+ubuntu /bin/sh -c "while true; do echo hello world; sleep 1;
+done"
+
+还有一个可用的选项是none ，这个选项将会禁用所有容器中的日志，导致
+docker logs 命令也被禁用。
+
+#查看容器内部的进程
+docker top  daemon_dave
+#统计信息 
+docker stats daemon_dave
+
+#使用-u 标志为新启动的进程指定一个用户属主。
+#后台任务，可以在正在运行的容器中进行维护、监控及管理任务。
+docker exec -d daemon_dave touch /etc/new_config_file
+#交互式任务
+sudo docker exec -t -i daemon_dave /bin/bash
+
+docker stop
+命令会向Docker 容器进程发送SIGTERM 信号。如果想快速停止某个容
+器，也可以使用docker kill 命令来向容器进程发送SIGKILL 信号。
+
+docker ps - n <x> ，该命令会显示最后x个容器，
+
+如果由于某种错误而导致容器停止运行，还可以通过一restart 标志，让Docker 自动
+重新启动该容器。--restart 标志会检查容器的退出代码，并据此来决定是否要重启容器。
+默认的行为是Docker 不会重启容器。
+sudo docker run --restart=always --name daemon_dave -d ubuntu 
+   bin/sh -c "while true; do echo hello world; sleep 1; done"
+
+一restart 标志被设置为always 。无论容器的退出代码是什么， Docker
+都会自动重启该容器。除了always ，还可以将这个标志设为on-failure ，这样，只有当
+容器的退出代码为非0 值的时候，才会自动重启。另外， on-failure 还接受一个可选的
+重启次数参数
+--restart=on-failure:5 #最多重启五次 
+
+#获得更多的容器信息
+docker inspect daemon_dave
+
+#用-f 或者--format 标志来选定查看结果
+#--format 或者-f 标志远非表面看上去那么简单。该标志实际上支持完整的Go 语言模
+#板。用它进行查询时，可以充分利用Go 语言模板的优势
+sudo docker inspect --format='{{ .State .Running }}' daemon dave
+
+#删除
+docker rm xxx
+-f 标志来删除运行中的Docker容器 
+
+#删除所有 
+sudo docker rm `sudo docekr ps- -a -q` 
+ - a 标志代表列出所有容器，而-q 标
+志则表示只需要返回容器的ID 而不会返回容器的其他信息
+
+#列出镜像
+docker images
+#拉取镜像
+docker pull ubuntu :12.04
+#查看指定镜像
+sudo docker images fedora
+
+构建Docker 镜像有以下两种方法。
+· 使用docker cornmit 命令。
+· 使用docker build 命令和Dockerfile 文件。
+现在我们并不推荐使用docker cornmit 命令，而应该使用更灵活、更强大的
+Dockerfile 来构建Docker 镜像
+#登陆docker hub
+sudo docker login
+
+#如果想深入探求镜像是如何构建出来的，可以使用docker history 命令
+docker history
+#查看容器的端口映射情况
+docker port static_web 80
+#指定宿主机映射到容器80端口的端口8080
+docker run -d -p 8080:80 --name static_web3 jamtur01/static_web nginx -g "daemon off;"
+#随机映射一个端口
+docker run -d -p 127.0.0.1::80 --name static_web4 jamtur01/static_web nginx -g "daemon off;"
+#-P,公开在Dockerfile中EXPOSE的端口
+
+4.5.10 Dockerfile 指令
+CMD 指令用于指定一个容器启动时要运行的命令
+CMD ["/bin/true"]
+CMD ["/bin/true","-1"] 给CMD 指令传递参数
+需要注意的是，要运行的命令是存放在飞个数线结构申的。这将告诉Docker 按指定的原
+样来运行该命令。当然也可以不使用数纽两党指定CMD 指令，这时候Docker 会在指定的
+定的命令会覆盖Dockerfile 中的CMD 指令
+
+在Dockerfile中只能指定一条CMD 指令。如果指定了多条CMD 指令，也只有最后一
+条CMD 指令会被使用。如果想在启动容器时运行多个进程或者多条命令，可以考虑使用
+类似Supervisor 这样的服务管理工具
+
+命令前加上/bin/sh -C
+最后，还需牢记，使用docker run 命令可以覆盖CMD 指令。如果我们在Dockerfile
+里指定了CMD 指令，而同时在docker run 命令行中也指定了要运行的命令， 命令行中指
+ENTRYPOINT 指令提供的命令则不容易在启动容器时被
+覆盖。实际上， docker run 命令行中指定的任何参数都会被当做参数再次传边给
+ENTRYPOINT 指令中指定的命令
+
+ENTRYPOINT [ " /usr/sbin/nginx " , " -g" , "daemon off;" ]
+
+ENTRYPOINT [ " /usr/sbin/nginx " ]
+sudo docker run -t -i jamturOl/static_web -g "daernon off;"
+从上面可以看到，我们重新构建了镜像，并且启动了一个交互的容器。我们指定了-g
+"daemon off;" 参数， 这个参数会传递给用ENTRYPOINT 指定的命令，在这里该命令为
+/usr/sbin/nginx -g "daemon off;" 。该命令会以前台运行的方式启动Nginx 守护
+进程，此时这个容器就会作为一台Web 服务器来运
+
+ENTRYPOINT [ ., /Usr /sbin/nginx"]
+CMD ["-h"]
+此时当我们启动一个容器时，任何在命令行中指定的参数都会被传递给Nginx 守护进
+程。比如，我们可以指定- g "daemon off "; 参数让Nginx 守护进程以前台方式运行。如
+果在启动容器时不指定任何参数，则在CMD 指令中指定的-h 参数会被传递给Nginx 守护进
+程，即Nginx 服务器会以/usr / sbin/nginx -h 的方式启动，该命令用来显示Nginx 的帮
+助信患。
+这使我们可以构建一个镜像，该镜像既可以运行一个默认的命令，同时它也支持通过
+docker run命令行为该命令指定可覆盖的选项或者标志
+在运行时通过docker run 的--entrypoint 标志覆盖
+ENTRYPOINT 指令。
+
+WORKDIR 指令用来在从镜像创建一个新容器时，在容器内部设置一个工作目录，
+ENTRYPOINT 和/或CMD 指定的程序会在这个目录下执行
+
+WORKDIR /opt/webapp/db
+RUN bundle install
+WORKDIR /opt/webapp
+ENTRYPOINT [ "rackup" ]
+
+我们将工作目录切换为/opt/webapp/db 后运行了bundle install 命令，
+之后又将工作目录设置为/opt/webapp ，最后设置了ENTRYPOINT 指令来启动rackup
+命令。
+
+通过一W 标志在运行时覆盖工作目录
+sudo docker run -ti -w /var/log ubuntu pwd
+
+ENV RVM_PATH /home/rvm/
+这个新的环境变量可以在后续的任何RUN 指令中使用
+
+ENV RVM_PATH=/home/rvm RVM_ARCHFLAGS= "-arch i386 "
+
+#实际上WORKDIR 指令的值会被设为/opt/app
+ENV TARGET_DIR /opt/app
+WORKDIR $TARGET DIR
+
+也可以使用docker run 命令行的-e 标志来传递环境变量。这些变量将只会在运行时
+有效
+sudo docker run -ti -e "WEB PORT=8080" ubuntu env
+
+USER 指令用来指定该镜像会以什么样的用户去运行
+USER nginx
+基于该镜像启动的容器会以nginx 用户的身份来运行
+可以指定用户名或UID 以
+及组或GID ， 甚至是两者的组合，
+USER user
+USER user:group
+USER uid
+USER uid:gid
+USER user : gid
+USER uid : group
+也可以在docker run 命令中通过-u 标志来覆盖该指令指定的值
+如果不通过USER 指令指定用户，默认用户为root 。
+
+VOLUME 指令用来向基于镜像创建的容器添加卷。一个卷是可以存在于一个或者多个容
+器内的特定的目录，这个目录可以绕过联合文件系统， 并提供如下共享数据或者对数据进行
+持久化的功能。
+· 卷可以在容器间共享和重用。
+· 一个容器可以不是必须和其他容器共享卷。
+· 对卷的修改是立时生效的。
+· 对卷的修改不会对更新镜像产生影响。
+· 卷会一直存在直到没有任何容器再使用它。
+
+VOLUME [ " /opt/project "]
+这条指令将会为基于此镜像创建的任何容器创建一个名为/op t/ project 的挂载点。
+
+docker cp 是和VOLUME 指令相关并且也是很实用的命令。该命令九许从容器复制文件
+和复制文件到容器上。
+
+ADD 指令用来将构建环境下的文件和目录复制到镜像中。比如， 在安装一个应用程序时。
+ADD 指令需要源文件位置和目的文件位置两个参数，
+ADD software.lic /opt/application/software.lic
+这里的ADD 指令将会将构建目录下的software . lic 文件复制到镜像中的/opt/
+application/software . lic 。指向源文件的位置参数可以是一个U肚，或者构建上下
+文或环境中文件名或者日录。不能对构建目录或者上下文之外的文件进行ADD 操作
+
+ADD 在处理本地归档文件( tar archive ) 时还有一些小魔法。如果
+将一个归档文件(合法的归档文件包括在ip 、bzip2 、xz) 指定为源文件， Docker 会自动将
+归档文件解开(unpack)
+
+ADD latest.tar.gz /var/www/worctpress/
+这条命令会将归档文件latest . tar.gz 解开到/var/www/wordpress/ 目录下。
+Docker 解开归档文件的行为和使用带- x 选项的tar 命令一样:该指令执行后的输出是原目
+的目录已经存在的内容加上归档文件中的内容。如果目的位置的目录下已经存在了和归档文
+件同名的文件或者目录，那么目的位置中的文件或者目录不会被覆盖。
+
+最后，如果目的位置不存在的话， Docker 将会为我们创建这个全路径，包括路径中的
+任何目录。新创建的文件和目录的模式为0755 ， 并且UlD和GID 都是0 。
+ADD 指令会使得构建缓存变得无效，这一点也非常重要。如果通过ADD 指令向镜像添加一
+个文件或者目录，那么这将使Dockerfile 中的后续指令都不能继续使用之前的构建缓存。、
+
+Copy 只关心在构建上下文中复制本地,文件，而不会去做文件提取( extraction )和
+解压( decompression ) 的工作
+
+COPY conf. d/ /etc/apache2/
+这条指令将会把本地conf .d 目录中的文件复制到/etc/apache2/ 目录中。
+文件源路径必须是一个与当前构建环境相对的文件或者目录，本地文件都放到和
+Dockerfile 同一个目录下。不能复制该目录之外的任何文件，因为构建环境将会上传到
+Docker 守护进程，而复制是在Docker 守护进程中进行的。任何位于构建环境之外的东西都
+是不可用的。COpy 指令的目的位置则必须是容器内部的一个绝对路径。
+任何由该指令创建的文件或者目录的UID 和GID 都会设置为0 。
+如果源路径是一个目录，那么这个目录将整个被复制到容器中，包括文件系统元数据;
+如果源文件为任何类型的文件，则该文件会随同元数据一起被复制
+如果目的位置不存在， Docker 将会自动创建所有需要的目录结构，就像mkdir - p 命
+令那样
+
+LABEL 指令用于为Docker 镜像添加元数据。元数据以键值对的形式展现
+LABEL version="1.0"
+LABEL location="New York" type="Da.ta Center" role="Web Server"
+LABEL 指令以label="value" 的形式出现。可以在每一条指令中指定一个元数据，
+或者指定多个元数据，不同的元数据之间用空格分隔。推荐将所有的元数据都放到一条
+LABEL 指令中，以防止不同的元数据指令创建过多镜像层。可以通过docker inspect
+命令来查看Docker 镜像中的标签信息
+
+STOPSIGNAL 指令用来设置停止容器时发送什么系统调用信号给容器。这个信号必须
+是内核系统调用表中合法的数，
+
+ARG 指令用来定义可以在docker build 命令运行时传递给构建运行时的变量，我们
+只需要在构建时使用一build-arg 标志即可,用户只能在构建时指定在Dockerfile 文
+件中定义过的参数。
+ARG build
+ARG webapp_úser=user
+上面例子中第二条ARG 指令设置了一个默认值，如果构建时没有为该参数指定值，就
+会使用这个默认值.
+docker buìld --build-arg bui1d=1234 -t jamturOl/webapp
+这里构建jamturOl/webapp 镜像时， build 变量将会设置为1234 ，而webapp_user
+变量则会继承设置的默认值use
+
+Docker 预定义了一组ARG 变量，可以在构建时直接使用，而不必再到Dockerfile
+中自行定义。
+p85页
+要想使用这些预定义的变量，只需要给docker build 命令传递--build-arg
+<variable>=<value>标志就可以了
+
+#可以看作模板 
+ONBUILD 指令能为镜像添加触发器(trigger) 。当一个镜像被用做其他镜像的基础镜像
+时该镜像中的触发器将会被执行。触发器会在构建过程中插入新指令，我们可以认为这些指令是紧跟在FROM 之后指定的。
+触发器可以是任何构建指令
+ONBUILD ADD . /app/src
+ONBOILD RUN cd /app/src && make
+上面的代码将会在创建的镜像中加入ONBU 工LD 触发器， ONBUILD 指令可以在镜像上运
+行docker inspect 命令来查看
+ONBUILD 触发器会按照在父镜像中指定的顺序执行，并且只能被继承-次(也就是说
+只能在子镜像中执行，而不会在孙子镜像中执行〉
+
+通过docker push 命令将镜像推送到Docker Hub
+
+为了使用自动构建，我们只需要将GitHub 或BitBucket 中含有Dockerfile 文
+件的仓库连接到Docker Hub 即可。向这个代码仓库推送代码时，将会触发一次镜像构建活
+动并创建一个新镜像。在之前该工作机制也被称为可信构建( Trusted Build ) 。
+
+使用docker rmi 命令来删除一个镜像
+sudo docker rmi `docker images -a -q`
+
+一v 这个选项允许我
+们将宿主机的目录作为卷，挂载到容器
+卷是在一个或者多个容器内被选定的目录，可以绕过分层的联合文件系统CUnion FiLe
+System ) ，为Docker 提供持久数据或者共享数据。这意味着对卷的修改会直接生效，并绕过
+镜像。当提交或者创建镜像时， 卷不被包含在镜像里。
+
+#加载卷 -v $pwd/website: 到容器目录 
+sudo docker run -d -p 80 --name website \
+-v $PWD/website:/var/www/html/website \
+fdsxaar/nqinx nginx
+
+5.2.6 Docker Networking
+要想使用Docker 网络， 需要先创建一个网络， 然后在这个网络下启动容
+器
+sudo docker network create app
+docker network inspect 命令查看新创建的这个网络，
+docker network ls #查看所有网络 
+#加入网络 --net=app 
+docker run -d --net=app --name db jamtur01/redis
+
+#注意：经实践，未出现书本所说的网络 或者是ip6形式？
+由于这个容器是在app 网络内部启动的，因此Docker 将会感知到所有在这个网络下运
+行的容器，并且通过/etc/hosts 文件将这些容器的地址保存到本地DN S 中。

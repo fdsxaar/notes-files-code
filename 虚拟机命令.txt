@@ -1,0 +1,178 @@
+#jdk8,部署tomcat时用
+#Heap Memory
+export JAVA_OPTS="-Xms255m -Xmx255m -Xmn130m -XX:MaxMetaspaceSize=75m -XX:MetaspaceSize=75m -XX:SurvivorRatio=24"
+
+#GC 
+export JAVA_OPTS="$JAVA_OPTS -XX:+UseParallelOldGC -XX:-UseAdaptiveSizePolicy"
+
+#GC Logging
+export JAVA_OPTS="$JAVA_OPTS -XX:+PrintCommandLineFlags -XX:+PrintGCDetails -XX:+PrintGCDateStamps"
+export JAVA_OPTS="$JAVA_OPTS -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10m"
+export JAVA_OPTS="$JAVA_OPTS -Xloggc:/home/x/product/vmall/gc.log"
+
+#Heap dump
+export JAVA_OPTS="$JAVA_OPTS -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/path/oomfolder/oom.log"
+=====
+
+-Xlog:gc*:file=C:\gc\log:time -XX:+UseParallelOldGC
+
+-Xlog:gc*:file=C:\gc\log:time -XX:+UseParallelOldGC -XX:+PrintCommandLineFlags 
+-Xms40m -Xmx40m -Xmn15m 
+
+-Xlog:gc+ergo*=trace:file=C:\gc\log:time -XX:+UseParallelOldGC -XX:+PrintCommandLineFlags 
+-XX:-UseAdaptiveSizePolicy 
+-Xms255m -Xmx255m -Xmn130m -XX:MaxMetaspaceSize=75m -XX:MetaspaceSize=75m
+-XX:SurvivorRatio=24
+
+//运行程序时必须配置的VM参数 
+-XX:+PrintGCDetails
+-XX:+PrintGCDateStamps
+-Xloggc:/path/logfolder/gc.log
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=/path/oomfolder/oomlog
+
+//-XX:MaxPermSize=40m -XX:PermSize=40m 自jdk8以后取消了 
+//查看虚拟机配置 
+java -XX:+PrintCommandLineFlags -version
+
+//使用64位JVM
+-d64 -XX:+UseCompressedOops
+
+//打印详细信息
+-Xlog:gc*
+
+//写入文件
+:file=C:\gc\log.txt
+
+//用于调优响应时间/延迟较高的应用程序，可以帮助区分是VM的安
+//全点操作还是其他源头导致的停顿事件
+-XX:+PrintGCApplicationStoppedTime
+-XX:+PrintGCApplicationoncurrentTime 
+Xlog:safepoint
+
+开启-XX:+UseParallelGC 或-XX:+UseParallelOldGCldGC时，如
+果关闭-XX:-ScavengeBeforeFullGC， HotSpotVM在Full GC之前不会进行MinorGC ，但Full GC
+过程中依然会收集新生代;如果开启-XX:+ScavengeBeforeFullGC， HotSpotVM在Ful1 GC前会
+先做一次MinorGC ，分担一部分Full GC原本要做的工作。
+
+通过HotSpot命令行选项-XX:+PrintCommandLineFlags还可以查看堆的初始值及最大值。
+-XX:+PrintCommandLineFlags选项可以输出HotSpot VM初始化时使用-XX:InitialHeapSize=
+<n> -XX:MaxHeapSize=<m>指定的堆的初始值及最大值，其中< n>是以字节为单位的初始Java堆
+大小， <m>是以字节为单位的堆的最大值。
+
+-XX:InitialHeapSize=199970304 -XX:MaxHeapSize=3199524864
+
+-Xmx和-Xms命令行选项指定了新生代和老年代空间大小的初始的和最大值。初始值及最大值
+也被称为Java堆的大小。关注吞吐量及延迟的Java
+应用程序应该将-Xms和-Xmx设定为同一值。这是因为无论扩展还是缩减新生代空间或老年代空
+间都需要进行Full GC ，而Full GC会降低程序的吞吐量并导致更长的延迟
+
+-XX:NewSize=<n>[g|m|k]
+新生代空间大小的初始值，也是最小值,应当同时指定-XX:MaxNewSize=<n>[g|m|k] 选项。
+
+-XX:MaxNewSize=<n>[g|m|k]
+新生代空间大小的最大值，应当同时指定-XX:NewSize=<n>[g|m|k]
+
+-Xmn=<n>[g|m|k]
+设置新生代空间的初始值、最小以及最大值。新生代空间的大小会根据该值进行设定。
+
+通过-Xmn 可以很方便地设定新生代空间的初始值和最大值。有一点需要特别注意，如果-Xms
+和-Xmx 并没有设定为同一个值，使用- Xmn 选项时， Java 堆的大小变化不会影响新生代空间，即新
+生代空间的大小总保持恒定，而不是随着Java堆大小的扩展或缩减做相应的调整。因此，请注意，
+只有在-Xms 与- Xmx 设定为同一值时才使用-Xmn 选项
+
+-XX:PermSize=<n>[g|m|k]
+永久代空间的初始值及最小值
+
+-XX:MaxPermSize =<n>[g|m|k]
+永久代空间的最大值
+
+关注性能的Java 应用程序应该将永久代大小的初始值与最大值(使用-XX:PermSize 和
+-XX:MaxPermSize 选项)设置为同一值，因为永久代空间的大小调整需要进行Full GC才能实现。
+
+对老年代引起的OutOfMemoryErrors ，增加-Xms和-Xmx值;对永久代引起的OutOfMemoryErrors,
+增加-XX:PermSize和-XX:MaxPermSize值
+
+Java堆大小计算法则
+Java堆， -Xms 和-Xmx              3 -4倍Full GC后的老年代空间占用量
+永久代   -XX:PermSize             -XX :MaxPermSize 1. 2-1. 5倍Full GC后的永久代空间占用量
+新生代   -Xmn                      1 - 1 .5倍Full GC后的老年代空间占用量
+老年代    Java堆大小减新生代大小   2-3倍Full GC后的老年代空间占用量
+-Xms200m -Xmx200m -Xmn75m -XX:MaxMetaspaceSize=75m -XX:MetaspaceSize=75m
+
+最大晋升阈值(请不要将它与内部计算出的晋升阈值相混淆)可以通过HotSpotVM
+的命令行选项-XX:MaxTenuringThreshold=<n>设置。使用HotSpotYM 的命令行选项
+-XX:+PrintTenuringDistribution
+可以监控晋升的分布或者对象年龄分布， 并以此为依据确定最优的最大晋升阔值值。
+//-Xlog:gc+age=trace
+
+如果你在垃圾
+收集日志中发现concurrent mode failures字样，可以通过下面的命令行选项通知HotSpot在
+更早的时间启动CMS垃坡收集周期。
+-XX:CMSInitiaingOccupancyFraction=<percent>
+设定的值是CMS垃圾收集周期在老年代空间占用达到多少百分比时启动
+
+另一个可以与-XX:CMSInitiaingOccupancyFraction=<percent>一起使用的另一个HotSpot命
+令行选项是
+-XX:+UseCMSlnitiatingOccupancyOnly
+-XX:+UseCMSlnitiatingOccupancyOnly告知HotSpot VM 总是使用-XX:+UseCMSlnitiatingOccupancyOnly
+设定的值作为启动CMS周期的老年代空间占用阈值，否则, HotSpot VM仅在启动的第一个CMS用期里使用
+-XX:CMSlnitiatingOccupancyFraction设定的值作为占用比率，之后的周期中又转向自边应地启动CMS周期，
+即第一次CMS周期之后就不再使用-XX:CMSlnitiatingOccupancyFraction设定的值。
+
+使用CMS时，如果你观察到由显式调用System.gc() 触发的Fu11 GC. 有2种处理的方法。
+(1) 可以使用如下的HotSpot VM命令行选项. 指定在HotSpot VM 以CMS以垃圾收集周期的方式执行
+-XX:+ExplicitGClnvokesConcurrent
+或者
+-XX:+ExplicitGClnvokesConcurrentAndUnloadsClasses
+前者需要Java 6及以上版本。后者需要Java 6 Update 4及以上版本υ 如果你的JDK版本支持，
+最好使用- XX:+ExplicitGClnvokesConcurrentAndUnloadsClasses选项。
+(2) 也可以使用下面的命令行通知IHotSpot VM忽略思式的System.gc() 调用:
+-XX:+DisableExplicitGC
+要留意的是，使用这个命令行选项也会导致其他HotSpot VM 的垃圾收集器忽略显式的
+System.gc() 调用。
+我们建议除非有非常明确的理山，否则不要轻易地禁用
+显式的垃圾收集。与此同时，也建议只在有明确理由的情况下才在应川科序中使用System.gc()。
+
+//https://docs.oracle.com/javase/8/docs/technotes/guides/troubleshoot/clopts001.html
+The -XX:HeapDumpOnOutOfMemoryError Option
+This option tells the Java HotSpot VM to generate a heap dump when an allocation
+ from the Java heap or the permanent generation cannot be satisfied. There is no 
+ overhead in running with this option, so it can be useful for production systems
+ where the OutOfMemoryError exception takes a long time to surface.
+-XX:HeapDumpPath=/disk2/dumps will cause the heap dump to be generated in the 
+ /disk2/dumps directory
+ 
+//运行程序时必须配置的VM参数 
+-XX:+PrintGCDetails
+-XX:+PrintGCDateStamps
+-Xloggc:/path/logfolder/gc.log
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=/path/oomfolder/oomlog
+
+-Xlog:gc*:file=your.log:tags,time,uptime,level:filecount=5,filesize=100m
+
+//G1
+https://www.oracle.com/technetwork/tutorials/tutorials-1876574.html
+使用G1的条件：
+Recommended Use Cases for G1
+The first focus of G1 is to provide a solution for users running applications that 
+require large heaps with limited GC latency. This means heap sizes of around 6GB or 
+larger, and stable and predictable pause time below 0.5 seconds.
+
+Applications running today with either the CMS or the ParallelOldGC garbage collector
+would benefit switching to G1 if the application has one or more of the following traits.
+
+Full GC durations are too long or too frequent.
+The rate of object allocation rate or promotion varies significantly.
+Undesired long garbage collection or compaction pauses (longer than 0.5 to 1 second)
+Note: If you are using CMS or ParallelOldGC and your application is not experiencing
+long garbage collection pauses, it is fine to stay with your current collector. Changing 
+to the G1 collector is not a requirement for using the latest JDK
+
+A Young GC in G1
+//考虑age
+4.Live objects are evacuated (i.e., copied or moved) to one or more survivor regions. 
+If the aging threshold is met, some of the objects are promoted to old generation regions.
+
+调优G1主要考虑Evacuation Failure

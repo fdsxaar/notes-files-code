@@ -1,0 +1,100 @@
+Unix编程环境
+
+1.set `date`重置$1,$2...
+set X`ls -l time.c`，在前面加X
+
+2.echo $?，shell上一次执行命令的结果
+echo "`date`"#执行date命令
+
+3.test -f *测试文件是否存在
+
+4.for i in `echo PATH | 'sed/:/ /g' #在...中的没一项
+do
+	if test -f file.c #测试命令执行的结果
+	then 
+		echo $i/$$1 #如果为真则执行
+	else
+		#如果为假
+	fi#if then fi 必须换行
+done
+exit 1#退出
+
+5.|| 和 && 同C语言
+
+5.3.while和until循环
+
+for i in 文件列表
+do 
+	循环体，$i依次取表中的元素值
+done
+
+for i 隐含的表示对shell中的所有参数 $*
+do
+	循环体，$i依次取参数值
+done
+
+while 命令
+do
+	循环体，只要命令返回状态为真便继续执行
+done
+
+until 命令
+do
+	循环体，只要命令返回状态为假便继续进行
+done
+
+>文件名，创建一个文件
+
+while :
+while true #表示真
+
+用awk打印while循环的信息
+
+shell变量赋值：
+$var/${var} #var的值
+${var-thing}#若var有定义，取var,否则取thing,var不改变
+${var=thing}#若var有定义，取var，否则取thing,var的值置为thing
+${var?mesasge}#若var有定义，取var,否则打印message，并退出
+${var+thing]#若var有定义，取值thing，否则无值
+
+5.4 trap 命令序列 信号值 #能捕获终端，执行命令
+trap 'rm -f $new $old;exit 1' 1 2 5#命令读两次，在执行时为变量赋值，用单引号
+
+test -t 2>$1测试标准输出是否为终端
+exec nice 带nice运行的后台进行，优先级比交互程序的优先级低
+			exec省略了一个进程
+kill -9 进程id #信号9-SIGKILL不能被捕获，也不能忽略
+
+5.5 overwrite:改写文件
+sort -o file1 file2 #两个文件相同也可以排序
+sort file1>file2 #不能排序
+
+表5-1shell内部变量
+p112,overwrite final版，对PATH进行了重置
+
+shift命令将整个参数表向左移动一个位置
+$@/$*提供所有参数
+
+5.6 zap:使用名字终止进程
+
+5.7 pick
+read var #从标准输入读取数据，并赋值给var
+echo $var #显示
+
+shell内部命令，都不能>或<重定向
+
+echo -n "Ok" #-n选项抑制换行
+
+'1 2' 3
+$*和$@扩展为参数，并被重复扫描；参数的空格将字符串分成多个参数 ,1 2 3s
+"$*"表示shell的所有参数及其空格连在一起作为单个参数处理,1 2 3是一个参数
+"$@"与shell接受的参数等价，参数中的空格被忽略，其结果是等同于原来参数的
+一个单词, 1 2 是一个参数 3 是一个参数
+
+touch file #把文件最后修改时间设为当前时间
+
+IFS换行
+
+echo 1234 > file#创建文件，添加内容1234
+echo 5678 >>file#追加内容5678到file，不覆盖
+test ! -r file #如果不可读
