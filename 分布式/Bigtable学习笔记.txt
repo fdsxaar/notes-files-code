@@ -1,0 +1,132 @@
+Bigtable: A Distributed Storage System for Structured Data
+
+1 Introduction
+In many ways, Bigtable resembles a database: it shares
+many implementation strategies with databases. Parallel
+databases [14] and main-memory databases [13] have achieved
+scalability and high performance, but Bigtable
+provides a different interface than such systems.
+
+#Bigtable不支持a full relational 数据模型；为客户端提供一种
+#简单数据模型，允许客户合reason about 位置特性
+Bigtable does not support a full relational data model; instead, it
+provides clients with a simple data model that supports
+dynamic control over data layout and format, and allows
+clients to reason about the locality properties of the
+data represented in the underlying storage.
+
+#使用行和列名索引数据
+Data is indexed using row and column names that can be arbitrary
+strings. 
+#将数据视为未被解释的字符串
+Bigtable also treats data as uninterpreted strings,
+although clients often serialize various forms of structured
+and semi-structured data into these strings.
+#客户端能够控制数据的位置
+ Clients can control the locality of their data through careful
+choices in their schemas. Finally, Bigtable schema parameters
+let clients dynamically control whether to serve
+data out of memory or from disk.
+
+2 Data Model
+#多维Map,由row key，colum key 和时间戳索引，每一个值是为被解释的字节数组
+A Bigtable is a sparse, distributed, persistent multidimensional sorted map. 
+The map is indexed by a row key, column key, and a timestamp; each value in the map
+is an uninterpreted array of bytes.
+
+(row:string, column:string, time:int64) ——> string
+
+Rows
+#row 键是任意字符串
+The row keys in a table are arbitrary strings
+#在行上的并发写或读是原子的
+Every read or write of data under a single row key is atomic
+
+#按row键的词法顺序维护数据
+Bigtable maintains data in lexicographic order by row
+key.
+#row range的概念
+Each row range is called a tablet, which is the unit of distribution
+and load balancing
+
+
+Column Families
+Column keys are grouped into sets called column families,
+which form the basic unit of access control.
+
+#列键组成的family
+It is our intent that the number of distinct column
+families in a table be small (in the hundreds at most), and
+that families rarely change during operation. In contrast,
+a table may have an unbounded number of columns
+
+#列键的命名规范
+A column key is named using the following syntax:
+family:qualifier. Column family names must be printable,
+but qualifiers may be arbitrary strings
+
+#对于应用，执行colum family级别的的访问控制，磁盘和内存记数
+Access control and both disk and memory accounting
+are performed at the column-family level
+
+Timestamps
+#每个cell能够容纳多个相同内容的版本
+Each cell in a Bigtable can contain multiple versions of
+the same data; these versions are indexed by timestamp
+
+#设置如何回收版本
+To make the management of versioned data less onerous,
+we support two per-column-family settings that tell
+Bigtable to garbage-collect cell versions automatically.
+
+3 API
+
+4 Building Blocks
+#SSTable的一些技术
+The Google SSTable file format is used internally to
+store Bigtable data. An SSTable provides a persistent,
+ordered immutable map from keys to values, where both
+keys and values are arbitrary byte strings. Operations are
+provided to look up the value associated with a specified
+key, and to iterate over all key/value pairs in a specified
+key range.
+
+#载入内存，从disk读
+Internally, each SSTable contains a sequence
+of blocks (typically each block is 64KB in size, but this
+is configurable). A block index (stored at the end of the
+SSTable) is used to locate blocks; the index is loaded
+into memory when the SSTable is opened. 
+#查找合适的块
+A lookup can be performed with a single disk seek: we first find
+the appropriate block by performing a binary search in
+the in-memory index, and then reading the appropriate
+block from disk. Optionally, an SSTable can be completely
+mapped into memory, which allows us to perform
+lookups and scans without touching disk.
+
+Bigtable relies on a highly-available and persistent
+distributed lock service called Chubby
+
+5 Implementation
+The Bigtable implementation has three major components:
+a library that is linked into every client, one master
+server, and many tablet servers.
+
+Each tablet server manages a set of tablets (typically
+we have somewhere between ten to a thousand tablets per
+tablet server).
+
+Because Bigtable clients do not rely on
+the master for tablet location information, most clients
+never communicate with the master. As a result, the master
+is lightly loaded in practice.
+
+#table包含tablet，一个tablet包含与一个row range相关的所有信息
+A Bigtable cluster stores a number of tables. Each table
+consists of a set of tablets, and each tablet contains
+all data associated with a row range
+
+#用户tablets的集合
+Each METADATA tablet contains the location of a set of
+user tablets
