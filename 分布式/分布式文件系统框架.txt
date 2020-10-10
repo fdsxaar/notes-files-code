@@ -1,0 +1,15 @@
+程序分两个过程，单机和多机。先写单机模式，再写多机模式。
+
+单机模式：
+func main(){
+    Listen() //服务器在特定端口上监听
+    Dispatch(Event){ //分发事务
+        result = Parse() //解析参数
+        if is write:
+            GetLock() // 获取锁
+            ReviseFile() //修改文件
+            ReleaseLock() //释放锁
+        if is read:
+            DirectRead() //直接读
+    } 
+}

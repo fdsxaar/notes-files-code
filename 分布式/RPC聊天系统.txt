@@ -1,0 +1,28 @@
+RPC聊天系统
+
+Server端：
+func main{
+    Listen() //监听服务器
+    AddUserMap() //如果是首次来的用户，加入全局的User Map数据结构中
+
+    go RequestRoutine(){
+        while(){
+            rpc := ReadData() //读数据
+            ParseRPC(rpc){ //解析RPC调用
+                if Group:
+                    //获取Group的消息
+                if Create Group:
+                    //创建一个Group
+                if Quit Group:
+                    //退出Group
+                if  BroadCast Message：
+                    //广播消息
+                if Fetch File:
+                    //获取文件内容
+                if Link User:
+                    //与某个User连接，进行通讯
+
+           }
+       }
+    }
+}
