@@ -1,0 +1,86 @@
+工具箱
+
+一. OO基础
+抽象
+封装
+多态
+继承
+
+二. OO原则
+1.封装变化
+2.多用组合，少用继承
+3.针对接口编程，不针对实现编程<多态>
+4.为交互对象之间的松耦合设计而努力
+5.对扩展开放，对修改关闭
+6.Depend on abstractions. Do not depend on concrete classes.
+7.Only talk to your friends
+8.好莱坞原则：Don’t call us, we’ll call you.
+
+三. OO模式
+1.策略模式定义了算法族，分别封装起来，让他们之间可以相互替换，此模式让算法的变化独立于使用算法的客户。
+
+2.观察者模式定义了对象之间的一对多依赖，这样一来，当一个对象改变状态时，它的所有依赖者都会收到通知并自动更新。
+
+3.装饰者模式动态地将责任附加到对象上，若要扩展功能，装饰者提供了比继承更有弹性的替代方案。
+
+4.Abstract Factory - Provide an
+interface for creating families of
+related or depedent objects without
+specifying their concrete classes.
+
+.Factory Method - Define an
+interface for creating an object, but
+let subclasses decide which class to
+instantiate. Factory Method lets
+a class defer instantiation to the
+subclasses.
+
+5.The Singleton Pattern ensures a class has only one
+instance, and provides a global point of access to it.
+
+6.命令模式
+The Command Pattern encapsulates a request as an
+object, thereby letting you parameterize other objects
+with different requests, queue or log requests, and support
+undoable operations
+
+7.适配器模式
+The Adapter Pattern converts the interface of a class
+into another interface the clients expect. Adapter lets
+classes work together that couldn’t otherwise because of
+incompatible interfaces.
+
+8.外观模式
+The Facade Pattern provides a unifi ed interface to a
+set of interfaces in a subsytem. Facade defi nes a higherlevel
+interface that makes the subsystem easier to use.
+
+9.模板方法
+The Template Method Pattern defines the skeleton
+of an algorithm in a method, deferring some steps to
+subclasses. Template Method lets subclasses redefi ne
+certain steps of an algorithm without changing the
+algorithm’s structure.
+
+10.迭代器模式
+The Iterator Pattern provides a way to
+access the elements of an aggregate object
+sequentially without exposing its underlying
+representation.
+
+11.组合模式
+//整体和局部实现同一个接口
+//组合模式
+//树形结构：统一看待单个对象和对象组合
+The Composite Pattern allows you to
+compose objects into tree structures to
+represent part-whole hierarchies. Composite
+lets clients treat individual objects and
+compositions of objects uniformly.
+
+12.状态模式
+//对象有一些状态，这些状态是类，实现共同的接口，动作发生时，
+//委托给装态类执行，实现状态转变
+The State Pattern allows an object to alter its behavior
+when its internal state changes. The object will appear to
+change its class.

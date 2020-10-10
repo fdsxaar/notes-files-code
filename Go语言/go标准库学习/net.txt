@@ -1,0 +1,45 @@
+https://godoc.org/net
+
+Name Resolution：
+解析方式依操作系统而定，
+
+type Conn interface {
+    //keep-alive failure故障可能返回timeout错误
+    // Note that if a TCP connection has keep-alive turned on,
+    // which is the default unless overridden by Dialer.KeepAlive
+    // or ListenConfig.KeepAlive, then a keep-alive failure may
+    // also return a timeout error. On Unix systems a keep-alive
+    // failure on I/O can be detected using
+    // errors.Is(err, syscall.ETIMEDOUT).
+    SetDeadline(t time.Time) error
+
+}
+
+
+func Dial
+func Dial(network, address string) (Conn, error)
+两种形式的拨号：
+For TCP and UDP networks, the address has the form "host:port"
+Dial("tcp", "198.51.100.1:80")
+Dial("udp", "[2001:db8::1]:domain")
+
+For IP networks, the network must be "ip", "ip4" or "ip6" followed 
+by a colon and a literal protocol number or a protocol name, and the address has the form "host"
+Dial("ip4:1", "192.0.2.1")
+Dial("ip6:ipv6-icmp", "2001:db8::1")
+
+//address参数最好用ip地址
+//The address parameter can use a host name, but this is not recommended,
+// because it will return at most one of the host name's IP addresses
+func ResolveTCPAddr
+func ResolveTCPAddr(network, address string) (*TCPAddr, error)
+
+//设定操作系统级别的缓冲
+func (*TCPConn) SetReadBuffer
+func (c *TCPConn) SetReadBuffer(bytes int) error
+SetReadBuffer sets the size of the operating system's receive buffer associated with the connection.
+
+//conn实现了read、write等方法，Conn接口有这些方法
+type TCPConn struct {
+	conn
+}

@@ -1,0 +1,4 @@
+strings包
+
+//将读入的数据分割成slice
+strings.FieldFunc

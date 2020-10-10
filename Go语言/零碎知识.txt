@@ -1,0 +1,40 @@
+//只有后置递增
+自增语句i++ 给i 加1；这和i += 1 以及i = i + 1 都是等价的。对应的还有i‐‐ 给i 减1。它们是语
+句，而不像C系的其它语言那样是表达式。所以j = i++ 非法，而且++和
+都只能放在变量名后面，
+因此‐‐i 也非法
+
+Go语言只有for循环这一种循环语句。for循环有多种形式，其中一种如下所示：
+for initialization; condition; post {
+// zero or more statements
+}
+for循环三个部分不需括号包围。大括号强制要求, 左大括号必须和post语句在同一行。
+
+
+var v byte = 'a'
+string(v) //转换成字符串
+
+//if-else的用法
+if b{
+
+}else{
+
+}
+
+//错误的写法
+if b{
+
+}
+else{
+
+}
+
+//Go没法实现内存镜像，类似于Redis？
+https://stackoverflow.com/questions/28370646/how-do-i-fork-a-go-process/28371586#28371586
+
+//清除一个slice 
+https://stackoverflow.com/questions/16971741/how-do-you-clear-a-slice-in-go
+
+用go关键字打开的gorotine,当main程序调用os.exit()后，gorutine会退出吗？如果把main程序比作
+C中主进程，那么主进程退出，线程也退出
+

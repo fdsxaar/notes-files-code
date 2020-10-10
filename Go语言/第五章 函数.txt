@@ -1,0 +1,451 @@
+第五章 函数
+
+5.1. 函数声明
+func name(parameter‐list) (result‐list) {
+    body
+}
+返回值也可以像形
+式参数一样被命名。在这种情况下，每个返回值被声明成一个局部变量，并根据该返回值的类型，
+将其初始化为0。 如果一个函数在声明时，包含返回值列表，该函数必须以 return语句结尾，除非
+函数明显无法运行到结尾处。例如函数在结尾时调用了panic异常或函数中存在无限循环
+
+函数的形参和有名返回值作为函数最外层的局部变量，被存储在相同的词法块中。
+
+没有函数体的函数声明，这表示该函数不是以Go实现的。这样的声明定义了函
+数标识符。
+package math
+func Sin(x float64) float //implemented in assembly language
+
+5.2递归
+大部分编程语言使用固定大小的函数调用栈，常见的大小从64KB到2MB不等。固定大小栈会限制
+递归的深度，当你用递归处理大量数据时，需要避免栈溢出；除此之外，还会导致安全性问题。与
+相反,Go语言使用可变栈，栈的大小按需增加(初始时很小)。这使得我们使用递归时不必考虑溢出
+和安全问题 
+
+虽然Go的垃圾回收机制会回收不
+被使用的内存，但是这不包括操作系统层面的资源，比如打开的文件、网络连接。因此我们必须显
+式的释放这些资源。
+调用多返回值函数时，返回给调用者的是一组值，调用者必须显式的将这些值分配给变量:
+links, err := findLinks(url)
+
+按照惯例，函数
+的最后一个bool类型的返回值表示函数是否运行成功，error类型的返回值代表函数的错误信息，对
+于这些类似的惯例，我们不必思考合适的命名，它们都无需解释
+
+In a function with named results, the operands of a return statement may be omitted. This is
+called a bare return.
+
+5.4. 错误
+对于那些将运行失败看作是预期结果的函数，它们会返回一个额外的返回值，通常是最后一个，来
+传递错误信息
+
+如果导致失败的原因只有一个，额外的返回值可以是一个布尔值，通常被命名为
+ok。比如，cache.Lookup失败的唯一原因是key不存在，那么代码可以按照下面的方式组织：
+value, ok := cache.Lookup(key)
+if !ok {
+// ...cache[key] does not exist…
+}
+通常，导致失败的原因不止一种，尤其是对I/O操作而言，用户需要了解更多的错误信息。因此，
+额外的返回值不再是简单的布尔类型，而是error类型
+
+内置的error是接口类型。error类型可能是nil或者nonnil。nil意味着函数运行成功，nonnil表示失败。
+对于nonnil的error类型,我们可以通过调用error的Error函数或者输出函数获得字符串类型的错误信息。
+fmt.Println(err)
+fmt.Printf("%v", err)
+
+通常，当函数返回nonnil的error时，其他的返回值是未定义的(undefined),这些未定义的返回值应
+该被忽略。然而，有少部分函数在发生错误时，仍然会返回一些有用的返回值。比如，当读取文件
+发生错误时，Read函数会返回可以读取的字节数以及错误信息。对于这种情况，正确的处理方式
+应该是先处理这些不完整的数据，再处理错误。因此对函数的返回值要有清晰的说明，以便于其他
+人使用。
+
+在Go中，函数运行失败时会返回错误信息，这些错误信息被认为是一种预期的值而非异常
+（exception），这使得Go有别于那些将函数运行失败看作是异常的语言。虽然Go有各种异常机
+制，但这些机制仅被使用在处理那些未被预料到的错误，即bug，而不是那些在健壮程序中应该被
+避免的程序错误
+
+#异常与处理异常的控制流相交缠
+The reason for this design is that exceptions tend to entangle the description of an error with
+the control flow required to handle it, often leading to an undesirable outcome: routine errors
+are rep orted to the end user in the form of an incomprehensible stack trace, full of
+informat ion about the structure of the program but lacking intellig ible context about what
+went wrong.
+
+By contrast, Go programs use ordinary control-flow mechanisms like if and return to respond to errors
+
+5.4.1. 错误处理策略
+常用的五种错误处理方式
+1) 传播错误。如何构建错误信息，然后返回给调用者
+2）如果错误的发生是偶然性的，或由不可预知的问题导致的。一个明智的选择是重新尝试失败的操作。在重试时，我们需
+要限制重试的时间间隔或重试的次数，防止无限制的重试。
+3）如果错误发生后，程序无法继续运行，我们就可以采用第三种策略：输出错误信息并结束程序。需
+要注意的是，这种策略只应在main中执行。对库函数而言，应仅向上传播错误，除非该错误意味着
+程序内部包含不一致性，即遇到了bug，才能在库函数中结束程序。
+
+调用log.Fatalf可以更简洁的代码达到与上文相同的效果。log中的所有函数，都默认会在错误信息
+之前输出时间信息。
+if err := WaitForServer(url); err != nil {
+    log.Fatalf("Site is down: %v\n", err)
+}
+我们可以设置log的前缀信息屏蔽时间信息，一般而言，前缀信息会被设置成命令名。
+log.SetPrefix("wait: ")
+log.SetFlags(0)
+
+4）第四种策略：有时，我们只需要输出错误信息就足够了，不需要中断程序的运行。我们可以通过
+log包提供的函数
+if err := Ping(); err != nil {
+    log.Printf("ping failed: %v; networking disabled",err)
+}
+或者标准错误流输出错误信息。
+if err := Ping(); err != nil {
+fmt.Fprintf(os.Stderr, "ping failed: %v; networking disabled\n", err)
+}
+log包中的所有函数会为没有换行符的字符串增加换行符。
+
+5）第五种，也是最后一种策略：我们可以直接忽略掉错误。
+dir, err := ioutil.TempDir("", "scratch")
+if err != nil {
+return fmt.Errorf("failed to create temp dir: %v",err)
+}
+// ...use temp dir…
+os.RemoveAll(dir) // ignore errors; $TMPDIR is cleaned periodically
+尽管os.RemoveAll会失败，但上面的例子并没有做错误处理。这是因为操作系统会定期的清理临时
+目录。正因如此，虽然程序没有处理错误，但程序的逻辑不会因此受到影响。我们应该在每次函数
+调用后，都养成考虑错误处理的习惯，当你决定忽略某个错误时，你应该在清晰的记录下你的意
+图。
+
+在Go中，错误处理有一套独特的编码风格。检查某个子函数是否失败后，我们通常将处理失败的
+逻辑代码放在处理成功的代码之前。如果某个错误会导致函数返回，那么成功时的逻辑代码不应放
+在else语句块中，而应直接放在函数体中。Go中大部分函数的代码结构几乎相同，首先是一系列的
+初始检查，防止错误发生，之后是函数的实际逻辑。
+
+5.4.2. 文件结尾错误（EOF）
+#EOF也是一种错误，
+Consider an attempt to read n bytes of dat a from a file. If n is chosen to be the
+length of the file, any error represents a failure
+
+io包保证任何由文件结束引起的读取失败都返回同一个错误——io.EOF
+
+5.5. 函数值
+在Go中，函数被看作第一类值（firstclass
+values）：函数像其他值一样，拥有类型，可以被赋值
+给其他变量，传递给函数，从函数返回。对函数值（function value）的调用类似函数调用。例子如
+下：
+func square(n int) int { return n * n }
+func negative(n int) int { return ‐n }
+func product(m, n int) int { return m * n }
+f := square
+fmt.Println(f(3)) // "9"
+f = negative
+fmt.Println(f(3)) // "‐3"
+fmt.Printf("%T\n", f) // "func(int) int"
+f = product // compile error: can't assign func(int, int) int to func(int) int
+
+函数类型的零值是nil。调用值为nil的函数值会引起panic错误：
+var f func(int) int
+f(3) // 此处f的值为nil, 会引起panic错误
+函数值可以与nil比较：
+var f func(int) int
+if f != nil {
+    f(3)
+}
+
+函数值之间是不可比较的，也不能用函数值作为map的key;
+
+5.6. 匿名函数
+拥有函数名的函数只能在包级语法块中被声明，通过函数字面量（function literal），我们可绕过
+这一限制，在任何表达式中表示一个函数值。函数字面量的语法和函数声明相似，区别在于func关
+键字后没有函数名。函数值字面量是一种表达式，它的值被称作匿名函数（anonymous
+function）。
+
+函数字面量允许我们在使用时函数时，再定义它
+
+更为重要的是，通过这种方式定义的函数可以访问完整的词法环境（lexical environment），这意
+味着在函数中定义的内部函数可以引用该函数的变量
+
+gopl.io/ch5/squares
+// squares返回一个匿名函数。
+// 该匿名函数每次被调用时都会返回下一个数的平方。
+func squares() func() int {
+    var x int
+    return func() int {
+        x++
+        return x * x
+}
+}
+
+func main() {
+    f := squares()
+    fmt.Println(f()) // "1"
+    fmt.Println(f()) // "4"
+    fmt.Println(f()) // "9"
+    fmt.Println(f()) // "16"
+}
+
+The squares example demonstrates that function values are not just code but can have state.
+The anonymous inner function can access and update the local variables of the enclosing
+function squares. These hidden variable references are why we classif y functions as reference
+types and why function values are not comparable. Function values like these are implemented
+using a technique cal le d closures, and Go programmers often use this ter m for function
+values.
+
+function squares. These hidden variable references are why we classif y functions as reference
+types and why function values are not comparable. Function values like these are implemented
+using a technique cal le d closures, and Go programmers often use this ter m for function
+values.
+
+当匿名函数需要被递归调用时，我们必须首先声明一个变量（在上面的例子中，我们首先声明了
+visitAll），再将匿名函数赋值给这个变量。如果不分成两部，函数字面量无法与visitAll绑定，我们
+也无法递归调用该匿名函数。
+visitAll := func(items []string) {
+// ...
+    visitAll(m[item]) // compile error: undefined: visitAll
+// ...
+}
+
+gopl.io/ch5/toposort 递归的深度优先拓扑排序
+
+resp.Request.URL解析后，连接以绝对路径的形式存在，可以直接被http.Get访
+问
+
+append的参数“f(item)...”，会将f返回的一组元素一个个添加到
+worklist中
+
+gopl.io/ch5/findlinks3 广度优先，发现一个页面的链接
+
+5.6.1. 警告：捕获迭代变量
+var rmdirs []func()
+for _, d := range tempDirs() {
+    dir := d // NOTE: necessary!
+    os.MkdirAll(dir, 0755) // creates parent directories too
+    rmdirs = append(rmdirs, func() {
+        os.RemoveAll(dir)
+})
+}
+// ...do some work… 
+for _, rmdir := range rmdirs {
+    rmdir() // clean up
+}
+
+#for循环引入了一个新的词法块，声明了一个局部变量dir，是一个可寻址的变量，并不是值
+var rmdirs []func()
+for _, dir := range tempDirs() {
+    os.MkdirAll(dir, 0755)
+    rmdirs = append(rmdirs, func() {
+        os.RemoveAll(dir) // NOTE: incorrect!
+})
+}
+通常，为了解决这个问题，我们会引入一个与循环变量同名的局部变量，作为循环变量的副本
+for _, dir := range tempDirs() {
+    dir := dir // declares inner dir, initialized to outer dir
+    // ...
+}
+
+这个问题不仅存在基于range的循环，在下面的例子中，对循环变量i的使用也存在同样的问题：
+var rmdirs []func()
+dirs := tempDirs()
+for i := 0; i < len(dirs); i++ {
+    os.MkdirAll(dirs[i], 0755) // OK
+    rmdirs = append(rmdirs, func() {
+    os.RemoveAll(dirs[i]) // NOTE: incorrect!
+})
+}
+如果你使用go语句（第八章）或者defer语句（5.8节）会经常遇到此类问题。这不是go或defer本
+身导致的，而是因为它们都会等待循环结束后，再执行函数值。
+
+5.7. 可变参数
+在声明可变参数函数时，需要在参数列表的最后一个参数类型之前加上省略符号“...”，这表示该函
+数会接收任意数量的该类型参数
+gopl.io/ch5/sum
+func sum(vals...int) int {
+    total := 0
+    for _, val := range vals {
+    total += val
+}
+return total
+}
+在函数体中,vals被看作是类型为[] int的切片。
+
+fmt.Println(sum(1, 2, 3, 4)) // "10"
+在上面的代码中，调用者隐式的创建一个数组，并将原始参数复制到数组中，再把数组的一个切片
+作为参数传给被调函数。如果原始参数已经是切片类型，我们该如何传递给sum？只需在最后一个
+参数后加上省略符。
+values := []int{1, 2, 3, 4}
+fmt.Println(sum(values...)) // "10"
+
+虽然在可变参数函数内部，...int 型参数的行为看起来很像切片类型，但实际上，可变参数函数和以
+切片作为参数的函数是不同的。
+func f(...int) {}
+func g([]int) {}
+fmt.Printf("%T\n", f) // "func(...int)
+linenum, name := 12, "count"
+errorf(linenum, "undefined: %s", name) // "Line 12: undefined: count"
+fmt.Printf("%T\n", g) // "func([]int)"
+
+可变参数函数经常被用于格式化字符串。下面的errorf函数构造了一个以行号开头的，经过格式化
+的错误信息。函数名的后缀f是一种通用的命名规范，代表该可变参数函数可以接收Printf风格的格
+式化字符串
+"func errorf(linenum int, format string, args ...interface{}) {
+    fmt.Fprintf(os.Stderr, "Line %d: ", linenum)
+    fmt.Fprintf(os.Stderr, format, args...)
+    fmt.Fprintln(os.Stderr)
+}
+interfac{}表示函数的最后一个参数可以接收任意类型
+
+#n.FirstChild != nil？title有FirstChild属性？
+if n.Type == html.ElementNode && n.Data == "title"&&n.FirstChild != nil {
+    fmt.Println(n.FirstChild.Data)
+}
+
+5.8. Deferred函数
+在调用普通函数或方法前加上关键字defer，就完成了defer所需要的语法。当defer语句被
+执行时，跟在defer后面的函数会被延迟执行。直到包含该defer语句的函数执行完毕时，defer后的
+函数才会被执行，不论包含defer语句的函数是通过return正常结束，还是由于panic导致的异常结
+束。你可以在一个函数中执行多条defer语句，它们的执行顺序与声明顺序相反。
+func title(url string) error {
+    defer resp.Body.Close()
+}
+
+defer语句经常被用于处理成对的操作，如打开、关闭、连接、断开连接、加锁、释放锁。通过
+defer机制，不论函数逻辑多复杂，都能保证在任何执行路径下，资源被释放。释放资源的defer应
+该直接跟在请求资源的语句后
+var mu sync.Mutex
+var m = make(map[string]int)
+func lookup(key string) int {
+    mu.Lock()
+    defer mu.Unlock()
+    return m[key]
+}
+
+调试复杂程序时，defer机制也常被用于记录何时进入和退出函数。下例中的bigSlowOperation函
+数，直接调用trace记录函数的被调情况。bigSlowOperation被调时，trace会返回一个函数值，该
+函数值会在bigSlowOperation退出时被调用。通过这种方式， 我们可以只通过一条语句控制函数
+的入口和所有的出口，甚至可以记录函数的运行时间，如例子中的start。需要注意一点：不要忘记
+defer语句后的圆括号，否则本该在进入时执行的操作会在退出时执行，而本该在退出时执行的，
+永远不会被执行
+func bigSlowOperation() {
+defer trace("bigSlowOperation")() // don't forget the extra parentheses
+// ...lots of work…
+time.Sleep(10 * time.Second) // simulate slow operation by sleeping
+}
+#log输出会添加2019/04/10 11:22:34等前缀格式
+func trace(msg string) func() {
+    start := time.Now()
+    log.Printf("enter %s", msg)
+    return func() {
+        log.Printf("exit %s (%s)", msg,time.Since(start)) 
+}
+}
+
+我们知道，defer语句中的函数会在return语句更新返回值变量后再执行，又因为在函数中定义的匿
+名函数可以访问该函数包括返回值变量在内的所有变量，所以，对匿名函数采用defer机制，可以
+使其观察函数的返回值。
+以double函数为例：
+func double(x int) int {
+return x + x
+}
+我们只需要首先命名double的返回值，再增加defer语句，我们就可以在double每次被调用时，输
+出参数以及返回值。
+func double(x int) (result int) {
+defer func() { fmt.Printf("double(%d) = %d\n", x,result) }()
+    return x + x
+}
+
+被延迟执行的匿名函数甚至可以修改函数返回给调用者的返回值：
+func triple(x int) (result int) {
+defer func() { result += x }()
+    return double(x)
+}
+fmt.Println(triple(4)) // "12"
+
+在循环体中的defer语句需要特别注意，因为只有在函数执行完毕后，这些被延迟的函数才会执
+行。下面的代码会导致系统的文件描述符耗尽，因为在所有文件都被处理之前，没有文件会被关
+闭。
+for _, filename := range filenames {
+    f, err := os.Open(filename)
+    if err != nil {
+        return err
+}
+
+defer f.Close() // NOTE: risky; could run out of file
+    descriptors
+    // ...process f…
+}
+
+一种解决方法是将循环体中的defer语句移至另外一个函数。在每次循环时，调用这个函数。
+for _, filename := range filenames {
+    if err := doFile(filename); err != nil {
+        return err
+}
+}
+func doFile(filename string) error {
+f, err := os.Open(filename)
+if err != nil {
+    return err
+}
+    defer f.Close()
+// ...process f…
+}
+
+对resp.Body.Close延迟调用我们已经见过了，在此不做解释。上例中，通过os.Create打开文件进
+行写入，在关闭文件时，我们没有对f.close采用defer机制，因为这会产生一些微妙的错误。许多文
+件系统，尤其是NFS，写入文件时发生的错误会被延迟到文件关闭时反馈。如果没有检查文件关闭
+时的反馈信息，可能会导致数据丢失，而我们还误以为写入操作成功。如果io.Copy和f.close都失
+败了，我们倾向于将io.Copy的错误信息反馈给调用者，因为它先于f.close发生，更有可能接近问
+题的本质。
+{
+n, err = io.Copy(f, resp.Body)
+// Close file, but prefer error from Copy, if any.
+if closeErr := f.Close(); err == nil {
+    err = closeErr
+}
+    return err
+}
+
+5.9. Panic异常
+Go的类型系统会在编译时捕获很多错误，但有些错误只能在运行时检查，如数组访问越界、空指
+针引用等。这些运行时错误会引起painc异常。
+一般而言，当panic异常发生时，程序会中断运行，并立即执行在该goroutine（可以先理解成线
+程，在第8章会详细介绍）中被延迟的函数（defer 机制）。随后，程序崩溃并输出日志信息。日志
+信息包括panic value和函数调用的堆栈跟踪信息。panic value通常是某种错误信息。对于每个
+goroutine，日志信息中都会有与之相对的，发生panic时的函数调用堆栈跟踪信息。通常，我们不
+需要再次运行程序去定位问题，日志信息已经提供了足够的诊断依据。因此，在我们填写问题报告
+时，一般会将panic异常和日志信息一并记录
+
+不是所有的panic异常都来自运行时，直接调用内置的panic函数也会引发panic异常；panic函数接
+受任何值作为参数。当某些不应该发生的场景发生时，我们就应该调用panic。比如，当程序到达
+了某条逻辑上不可能到达的路径
+
+It’s good prac tice to assert that the preconditions of a function hold, but this can easi ly be done
+to excess. Unless you can provide a more informat ive error message or detect an error sooner,
+there is no point asserting a condition that the runtime will check for you.
+
+#panic用于程序crash；最好用错误值处理一般的错误/预期错误
+Although Go’s panic mechanism res embles exceptions in other langu ages, the situat ions in
+which panic is used are quite dif ferent. Since a panic causes the program to crash, it is general
+ly used for grave errors, such as a log ical inconsistency in the program; diligent programmers
+consider any crash to be proof of a bug in their code. In a robust program, ‘‘expected’’
+errors, the kind that arise from incorrect input, misconfigurat ion, or failing I/O, should be
+handled gracefully; they are best dealt with using error values
+
+#这是库的编写者的责任
+当调用者明确的知道正确的输入不会引起函数错误时，要求调用者检查这个错误是不必要和累赘的
+
+runtime包允许程序员输出堆栈信息
+gopl.io/ch5/defer2
+func main() {
+    defer printStack()
+    f(3)
+}
+
+func printStack() {
+    var buf [4096]byte
+    n := runtime.Stack(buf[:], false)
+    os.Stdout.Write(buf[:n])
+}
+
+将panic机制类比其他语言异常机制的读者可能会惊讶，runtime.Stack为何能输出已经被释放函数
+的信息？在Go的panic机制中，延迟函数的调用在释放堆栈信息之前
+
+5.10. Recover捕获异常
+安全的做法是有选择性的recover

@@ -1,0 +1,135 @@
+Json包学习 
+https://blog.golang.org/json-and-go
+
+//编码
+// b will be a []byte
+b, err := json.Marshal(m)
+b == []byte(`{"Name":"Alice","Body":"Hello","Time":1294706395881547000}`)
+
+//解码，传递一个指针
+//call json.Unmarshal, passing it a []byte of JSON data and a pointer to m
+err := json.Unmarshal(b, &m)
+
+Encoding
+
+1.字符串作为键
+JSON objects only support strings as keys; to encode a Go map type it must be of the 
+form map[string]T (where T is any Go type supported by the json package).
+
+2.不支持循环数据类型
+Cyclic data structures are not supported; they will cause Marshal to go into an infinite loop.
+
+3.管道、复数、函数类型不能被编码
+Channel, complex, and function types cannot be encoded.
+
+4.指针被编码为所指向的值
+Pointers will be encoded as the values they point to (or 'null' if the pointer is nil).
+
+5.只能获取导出字段
+The json package only accesses the exported fields of struct types (those that begin 
+with an uppercase letter). Therefore only the the exported fields of a struct will be 
+present in the JSON output.
+
+Decoding
+1.仅解码匹配的字段，忽略其他不匹配的
+ This behavior is particularly useful when you wish to pick only a few specific fields out of a large JSON blob.
+
+Generic JSON with interface{}
+The interface{} (empty interface) type describes an interface with zero methods. Every Go type implements at least 
+zero methods and therefore satisfies the empty interface.
+
+1，用类型断言检测类型
+var i interface{}
+i = 2.777
+r := i.(float64)
+fmt.Println("the circle's area", math.Pi*r*r)
+
+2.if the underlying type is unknown, a type switch determines the type:
+switch v := i.(type) {
+case int:
+    fmt.Println("twice i is", v*2)
+case float64:
+    fmt.Println("the reciprocal of i is", 1/v)
+case string:
+    h := len(v) / 2
+    fmt.Println("i swapped by halves is", v[h:]+v[:h])
+default:
+    // i isn't one of the types above
+}
+
+3.用 map[string]interface{} and []interface{}存储json对象
+The json package uses map[string]interface{} and []interface{} values to store arbitrary JSON 
+objects and arrays; it will happily unmarshal any valid JSON blob into a plain interface{} value.
+The default concrete Go types are:
+bool for JSON booleans,
+float64 for JSON numbers,
+string for JSON strings, and
+nil for JSON null.
+
+3.1 Decoding arbitrary data
+主要是通过类型断言来实现
+
+3.2 Reference Types，pointers, slices, and maps
+Unmarshal 为引用类型分配空间
+type FamilyMember struct {
+    Name    string
+    Age     int
+    Parents []string
+}
+
+var m FamilyMember
+err := json.Unmarshal(b, &m)
+
+//如果在Json对象中有Bar字段，会为指针所指向的类型分配空间
+type Foo struct {
+    Bar *Bar
+}
+If there were a Bar field in the JSON object, Unmarshal
+ would allocate a new Bar and populate it. If not, Bar would be left as a nil pointer.
+
+//流式编解码
+3.3 Streaming Encoders and Decoders
+The json package provides Decoder and Encoder types to support the common operation 
+of reading and writing streams of JSON data. The NewDecoder and NewEncoder functions 
+wrap the io.Reader and io.Writer interface types
+
+========
+https://godoc.org/encoding/json
+//解码时，可大小写无关匹配
+func Unmarshal
+To unmarshal JSON into a struct, Unmarshal matches incoming object keys to the keys used 
+by Marshal (either the struct field name or its tag), preferring an exact match but also 
+accepting a case-insensitive match
+
+//数据不足时也可以解码
+To unmarshal a JSON array into a Go array, Unmarshal decodes JSON array elements into corresponding Go
+ array elements. If the Go array is smaller than the JSON array, the additional JSON array elements are discarded. 
+If the JSON array is smaller than the Go array, the additional Go array elements are set to zero values
+
+//目标类型不符，溢出目标类型，会返回错误UnmarshalTypeError
+If a JSON value is not appropriate for a given target type, or if a JSON number overflows the target type,
+Unmarshal skips that field and completes the unmarshaling as best it can. If no more serious errors are encountered,
+Unmarshal returns an UnmarshalTypeError describing the earliest such error. In any case, it's not guaranteed that all
+ the remaining fields following the problematic one will be unmarshaled into the target object.
+
+//字符串中的引号被表示为 U+FFFD
+//surrogate pairs，utf-16只能表示两个字节的以内的字符，超过两个字节要用码点对表示，就是surrogate pairs
+ When unmarshaling quoted strings, invalid UTF-8 or invalid UTF-16 surrogate pairs are not treated as an error.
+Instead, they are replaced by the Unicode replacement character U+FFFD.
+
+bufio
+binary
+
+
+type Decoder
+//作用对象是流
+type Decoder struct {
+    // contains filtered or unexported fields
+}
+A Decoder reads and decodes JSON values from an input stream
+
+
+func (*Encoder) Encode
+//后跟一个换行符
+func (enc *Encoder) Encode(v interface{}) error
+Encode writes the JSON encoding of v to the stream, followed by a newline character

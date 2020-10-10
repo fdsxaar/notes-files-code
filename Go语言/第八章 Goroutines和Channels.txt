@@ -1,0 +1,9 @@
+第八章 Goroutines和Channels
+
+8.3 
+#"\t" ？？
+fmt.Fprintln(c, "\t", strings.ToUpper(shout))
+
+echo服务器：
+每个连接一个goroutine,对每个连接的每次事务处理，再创建一个goroutine
+

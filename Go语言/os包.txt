@@ -1,0 +1,6 @@
+os包
+
+UNIX&LINUX大学教程 p666文件权限 
+
+https://godoc.org/os#OpenFile
+常用OpenFile打开文件 

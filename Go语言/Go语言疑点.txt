@@ -1,0 +1,34 @@
+第五章 
+1.从网页查找title
+#n.FirstChild != nil？title有FirstChild属性？
+if n.Type == html.ElementNode && n.Data == "title"&&n.FirstChild != nil {
+    fmt.Println(n.FirstChild.Data)
+}
+
+第七章
+7.4. Parsing Flags with flag.Value
+#命令行参数
+
+7.6
+The var iable tracks below contains a playlist. (One of the authors ap olog izes for the other
+author’s music al tastes.) Each element is indirec t, a pointer to a Track. Although the code
+below would work if we stored the Tracks direc tly, the sort function will swap many pairs of
+elements, so it will run faster if each element is a pointer, which is a single machine word,
+instead of an entire Track, which mig ht be eig ht words or more.
+
+7.7 将函数值赋值给指针
+mux.Handle("/list", http.HandlerFunc(db.list))
+
+7.11. Discriminating Errors with Type Assertions
+Consider the set of errors returned by file operat ions in the os package. I/O can fail for any
+number of reasons, but three kinds of failure often must be handled dif ferently: file already
+exists (for create operations), file not found (for read operat ions), and permission denied.
+
+#两个不相同类型进行比较
+return err == syscall.ENOENT || err == ErrNotExist
+
+9.7 
+len(value.([]byte))
+
+7.8省略号
+var errors = [...]string 

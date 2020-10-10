@@ -1,0 +1,463 @@
+《A Tour Of Go》
+
+基础
+1.导出名，在Go中，
+2.函数，类型在变量名后面,
+    func add(x int,y int) int{
+    return x + y
+}
+
+相同类型的变量，可以只写后面一个变量的类型
+func add(x , y int){
+    return x + y 
+}
+
+3.函数可以返回多个值
+func add (x ,y int){
+    return x,y
+}
+
+4.命名返回值,return语句不跟变量名
+func split(sum int)(x , y int){
+    x = sum*4/9
+    y = sum -x 
+    return 
+}
+
+5.var语句定义一个变量组成的列表
+var c, python, java bool
+
+6.有初值的变量，如果给定初始值，则可以省略类型，变量将获取初始值的类型
+var i, j int = 1, 2
+var c, python, java = true, false, "no!"
+
+6.在函数内，:= 赋值语句可以代替var,定义变量；函数外的每一个语句以关键字开头（var,func,等等）,因此
+:=只能用于函数内有隐式类型的赋值语句中
+k := 3
+变量定义后，用 = 赋值
+var x 
+x = 10 
+在函数内
+x := 10
+
+7.基本类型
+string 
+bool
+/*在32机器，int/unit/uinptr是32位，64位机器上是64位，当需要整数值，应使用int，除非有确定理由使用其他类型
+int  int8  int16  int32  int64 
+uint uint8 uint16 uint32 uint64 uintptr
+byte //uint8的别名
+rune // int32的别名，代表一个Unicode码
+float32 float64
+complex64 complex128
+
+8.零值，没有初始值的变量，默认初始化
+0--数字类型
+false--布尔类型
+“” -- string类型
+
+9.类型转换
+表达式T(v),将值v转换成类型T，不像C语言，可以隐式转换
+var i int = 42 
+var f float32 = float32(i)
+或
+i := 42
+f := float32(i)
+
+10.类型接口
+未指明类型声明变量时（:= 或 var =)，变量的类型从右侧推断出来；
+i int = 42;
+j := i // j is an int 
+但是当右侧是一个数字时，推断出的类型可能是int,float64或complex128，取决于精度
+
+11.常量，用const声明
+常量可以是字符，字符串，boolean,或数字值
+不能用 := 语法声明常量
+
+12，数值常量
+数值常量是高精度值，未确定类型的数值常量的类型由上下文确定
+https://tour.golang.org/basics/16
+(An int can store at maximum a 64-bit integer, and sometimes less.)
+
+控制流
+1.for-Go语言的唯一循环语句，由分号隔开的三部分组成：
+    1.初始声明，在第一次迭代前执行，仅在for声明的作用域内可见；
+    条件表达式，每次迭代前评估；
+    post statement,在每次迭代后执行；
+
+    2.for循环的三个组成部分不能用（）包围,必须包括{}
+for i:=0;i<10;i++{
+    sum +=i
+}
+    3.前置或后置语句是可选的
+for ; sum < 1000; {
+    sum += sum
+}
+
+    4.去掉for循环中的分号，就变成Go的while循环
+    for sum < 10{
+        sum += sum
+    }
+
+    5.无限循环，上面的条件语句，成为无限循环
+    for {
+
+    }
+
+2.if语句，类似于for循环，不需要( )包围，{ }是必须的
+    1.if x < 0 {
+        return -x
+    }
+
+    2.类似for语句，在条件之前可以有简短语句,被声明的变量的作用域止于if语句的结尾处
+    if v = math.Pow(x,n);v < lim{
+        return v
+    }
+
+    3.在if语句内声明的语句，在else语句内也可见
+    if v = math.Pow(x, n); v < lim{
+        return v
+    }
+    else {
+        return lim
+    }
+
+    4.练习，牛顿法求平方根
+
+3.switch,可以把switch语句看作if-else
+    1.Go在每个case后自动有一个break，只执行一个case语句
+    2.Go's switch cases need not be constants，and the values involved need not be integers.
+    3.switch的执行顺序，从上至下，遇到case成功则停止
+    4.没有条件，相当于switch true
+    switch {
+        case 10:
+            //
+        case 42:
+           //
+    }
+
+4.defer语句，
+    1.defer语句延迟了函数的执行，直到包裹defer的函数（外围函数）执行完之后才执行，但是，被defer延迟的函数的参数
+    不延迟计算
+    func main(){
+        defer fmt.Println("world!")
+        fmt.Println("hello")
+    }
+
+    2.stackin defers,堆栈延迟，被延迟的函数按后进先出的顺序执行
+
+更多类型
+1.指针，持有一个值的内存地址
+    1.*T是一个指针，指向T类型的值，zero value是nil
+       var p *int
+    2.操作符&生成一个指针，指向它的操作数
+        i := 42
+        p = &i
+    3.操作符*表示指针指向的值(解引用或间接取值)
+        fmt.Println(*p) //通过p获得值i
+        *p = 21 //通过p设定值i
+    4.不像C，Go没有指针算术运算
+
+2.struct,是字段的集合
+    type Vertex struct{
+        X int
+        Y int
+    }
+    1.用点号 . 获取字段 
+        v = Vertex{1, 2}
+        v.X = 4
+    2.指向struct的指针，
+        p = &v 
+    通过指针获取字段，(*p).X, 也可以用 p.X 获取字段，不用解引用
+    3.struct字段值，表示一个新的分配的struct值，列出了字段值；用 Name：语法 能列出一个字段的值，
+    顺序无关
+        v2 = Vertex{X: 1}
+    
+3.数组,[n]T,声明了一个有n个类型T的值，数组的长度是类型的一部分
+primes := [6]int{2, 3, 5, 7, 11, 13}
+
+4.slice，切片，处理数组，动态大小，可伸缩
+    primes = [6]int{2, 3, 5, 7, 11, 13}
+    1.切片由两个索引组成，是个左开右闭区间
+     a[low : high]
+     a[1:4] //索引1，2，3的值
+    2.切片类似于数组的索引，改变slice中的值，会改变数组中的值
+     a = primes[0:2]
+     a[1] = 19 
+    3.slice字面值，类似数组字面值，但是没有长度
+    r := []bool{true, false, true, true, false, true}
+    4.索引的默认值，low的默认值为0，high为slice的长度
+        var a[10]int
+        a[0:10] 
+        a[:10]
+        a[0:]
+        a[:] //都相同
+    5.length 和 capacity
+        length：slice所包含的元素数
+        capacity:The capacity of a slice is the number of elements in the 
+        underlying array, counting from the first element in the slice.
+        从slice的第一个元素开始，数到最后一个元素
+        len(s) cap(s)两个函数计算出结果
+    6.nil slices,zero value为nil，len(s)==0,cap(s)==0,没有underlying array
+        var s []int 
+        s == nil
+    7.用make函数创建一个slice,make函数创建一个用0填充的数组，返回一个引用该数组的slice
+    https://tour.golang.org/moretypes/13
+        a := make([]int,5) //len(a)=cap(a)=5,[0,0,0,0,0]
+        a :=make([]int,0,5)//len(a)=0, cap=5
+    8.slices of slices 
+        board := [][]string{
+		[]string{"_", "_", "_"},
+		[]string{"_", "_", "_"},
+		[]string{"_", "_", "_"},
+	}
+    9.向slice添加元素
+        func append(s []T, vs ...T) []T //返回一个slice,如果underling元素的空间不够，则会分配
+        第一个参数是类型为T的slice
+        余下的是要添加的元素
+        var s []int
+        s = append(s,0)
+
+5.range,在slice或map上进行迭代,当range一个slice时，返回两个值，一个为index，一个为在该index上的元素
+    1.var pow = []int{1, 2, 4, 8, 16, 32, 64, 128}
+    
+    func main() {
+	    for i, v := range pow {
+		    fmt.Printf("2**%d = %d\n", i, v)
+	    }
+    }
+    2.通过赋值给 _ ,跳过index或value
+    for i,_ := range pow 
+    for _,v := range pow
+    如果只想要index,则取掉，value
+    for i := range pow
+
+6.Maps,映射
+    1.The zero value of a map is nil. A nil map has no keys, nor can keys be added.
+    2.make函数返回一个给定类型的map
+    var m map[string]Vertex //m-变量名，string-键的类型，Vertex-值的类型
+func main() {
+	m = make(map[string]Vertex)
+	m["Bell Labs"] = Vertex{
+		40.68433, -74.39967,
+	}
+	fmt.Println(m["Bell Labs"])
+}
+    3.字面值，需要键
+    type Vertex struct {
+	Lat, Long float64
+}
+
+var m = map[string]Vertex{
+	"Bell Labs": Vertex{
+		40.68433, -74.39967,
+	},
+	"Google": Vertex{
+		37.42202, -122.08408,
+	},
+}
+
+    如果顶层类型仅仅是一个类型名，在元素中可以去掉
+    type Vertex struct {
+	Lat, Long float64
+}
+
+var m = map[string]Vertex{
+	"Bell Labs": {40.68433, -74.39967},
+	"Google":    {37.42202, -122.08408},
+}
+    3.Mutating Maps，修改maps
+    插入或更新一个元素： m[key] = elem
+    获取：elem = m[key]
+    删除： delete(m,key)
+    
+    用a two-value assignment测试key是否存在：
+    elem, ok = m[key]
+    若在ok为true，否则为false
+    若key不在，则elem的值为map元素类型的zero value
+    如果elem或ok没有被声明，则用：
+    elem, ok := m[key]
+
+7.funcion values,
+    1.函数也是值，像其他值一样，能够被传递
+    func compute(fn func(float64, float64) float64) float64 {
+	return fn(3, 4)
+}
+
+    fmt.Println(compute(math.Pow))
+
+    2.函数值可以作为参数，也可以被返回
+    3.如果函数是closure，绑定自己的变量
+    Go functions may be closures. A closure is a function value that references variables from outside its body. 
+    The function may access and assign to the referenced variables; in this sense the function is "bound" to the variables.
+    func adder() func(int) int {
+	sum := 0
+	return func(x int) int {
+		sum += x
+		return sum
+	}
+}
+
+func main() {
+	pos, neg := adder(), adder()
+	for i := 0; i < 10; i++ {
+		fmt.Println(
+			pos(i),
+			neg(-2*i),
+		)
+	}
+}
+
+Methods
+1.Go没有类，A method is a function with a special receiver argument(方法是一个带有特殊接收者参数的函数)
+receiver出现在func关键字和方法名（函数名）之间
+    func (v Vertex) abs() float64(){
+        //
+    }
+
+    1.可以用struct之外的类型定义receiver
+    type myfloat float64
+    func (mf myfloat) abs() float64{
+        //
+    }
+
+    You can only declare a method with a receiver whose type is defined in
+     the same package as the method.You cannot declare a method with a receiver 
+     whose type is defined in another package (which includes the built-in types such as int).
+
+     2.Pointer receivers，可以修改指向的值，若不用指针，就是通常的参数拷贝
+      https://tour.golang.org/methods/4 
+      Also, T cannot itself be a pointer such as *int. //?
+
+      func (v Vertex) Abs() float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func (v Vertex) Scale(f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+func main() {
+	v := Vertex{3, 4} //v是指针？
+	v.Scale(10)
+	fmt.Println(v.Abs())
+}
+
+    3.while methods with pointer receivers take either a value or a pointer 
+    as the receiver when they are called:
+    func (v *Vertex) Scale(f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+    var v Vertex
+    v.Scale(5)  // OK
+    Go将v.Scale(5) 解释成 (&v).Scale(5) 
+
+    参数为值参数的函数，只接受值参数，然而，带有value receivers的方法，既能接受值参数，也能接受指针参数
+    func (v Vertex) Abs() float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+    p := &v
+    fmt.Println(p.Abs()) // OK
+    将p.Abs()解释成 (*p).Abs()
+
+    4.使用 pointer receiver,理由
+        ·可以修改值
+        ·避免拷贝较大的struct
+    给定类型的methods只能选择value or pointer receivers之一，不能是混合的receivers
+
+2.interface，An interface type is defined as a set of method signatures.
+https://tour.golang.org/methods/9
+Note: There is an error in the example code on line 22. 
+Vertex (the value type) doesn't implement Abser because the Abs 
+method is defined only on *Vertex (the pointer type). //必须是指针类型？
+    1.Interfaces are implemented implicitly //隐式地执行接口
+    2.接口值，例子见https://tour.golang.org/methods/11
+        Under the hood，接口值被看作一个值和一个具体类型的元组
+        (value, type)
+        接口值持有一个特定的underlying具体类型的值
+    3.接口的具体的值可以是nil， an interface value that holds a nil concrete value is itself non-nil.
+    type I interface {
+	    M()
+    }
+
+    type T struct {
+	    S string
+    }
+    var i I
+    var t *T
+    i = t
+    4.Nil interface values
+        A nil interface value holds neither value nor concrete type.
+        用nil interface values调用method，会产生runtime error,因为，元组没有类型，从而说明调用哪一个具体的method
+    5.The empty interface
+        interface{}，指定0个method，能持有任何类型的值（注：有点类似void)
+    
+
+3.类型断言
+    1. 获取接口值的underling 具体值 
+        t := i.(T) 
+    断言i持有具体类型T，并把值赋给变量t,如果i并没有持有一个T，触发一个panic
+    2. 返回两个值，the underlying value and a boolean value that reports whether the assertion succeeded.
+        t, ok := i.(T)
+    如果持有T，t为underling value, ok为true 
+    如果i不持有T，t为类型T的 zero value,ok为false,不会触发panic
+    3.type switches，case语句指定类型，没有指定值，与类型相比的值由接口值持有
+    func do(i interface{}) {
+	switch v := i.(type) {
+	case int:
+		fmt.Printf("Twice %v is %v\n", v, v*2)
+	case string:
+		fmt.Printf("%q is %v bytes long\n", v, len(v))
+	default:
+		fmt.Printf("I don't know about type %T!\n", v)
+	    }
+    }
+
+    4.Stringers,fmt函数调用
+    type Stringer interface {
+        String() string
+    }
+    A Stringer is a type that can describe itself as a string. The fmt package
+     (and many others) look for this interface to print values.
+
+    5.error，内置接口
+    type error interface {
+    Error() string
+}
+
+4.Reders
+https://tour.golang.org/methods/21
+		func (T) Read(b []byte) (n int, err error)
+        n, err := r.Read(b), b是一个slice
+
+5.Images
+
+协程goroutine 
+1.协程，轻量级线程
+2.Channels <-，发送和接受值，搭配协程使用,
+Like maps and slices, channels must be created before use:
+ch := make(chan int)
+
+By default, sends and receives block 
+until the other side is ready. This allows goroutines to synchronize without 
+explicit locks or condition variables.
+
+3.Buffered Channels
+Provide the buffer length as the second argument to make to initialize a buffered channel:
+
+ch := make(chan int, 100)
+Sends to a buffered channel block only when the buffer is full. Receives block when the buffer is empty
+
+4.Range and Close
+    1.发送者可以关闭channel，接受这可以测试
+         v, ok := <-ch
+        若ok为false，则表明没有值可接受，channel已关闭
+    2.循环 for i := c从channel重复接受数据
+    3.只有发送者可以关闭channel，给已关闭channel发送数据，会panic；当需要告诉接受者，没有数据可发送时，方可关闭channel
+
+5.select
+
+mutual exclusion =mutex
+6.sync.Mutex

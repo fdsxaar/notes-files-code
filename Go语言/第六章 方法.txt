@@ -1,0 +1,108 @@
+6.1. 方法声明
+方法可以被声明到任意类型，只要不是一个指针或者一个interface。
+
+In a realistic program, convention dic tates that if any met hod of Point has a pointer receiver,
+then all methods of Point should have a pointer receiver, even ones that don’t str ictly need it.
+
+不能通过一个无法取到地址的接收
+器来调用指针方法，比如临时变量的内存地址就无法获取得到：
+Point{1, 2}.ScaleBy(2) // compile error: can't take address of Point literal
+
+6.2. 基于指针对象的方法
+#不用解引用，直接
+func (p *Point) ScaleBy(factor float64) {
+    p.X *= factor
+    p.Y *= factor
+}
+
+6.2.1. Nil也是一个合法的接收器类型
+m = nil
+fmt.Println(m.Get("item")) // ""
+m.Add("item", "3") // panic: assignment to entry in nil map
+对Get的最后一次调用中，nil接收器的行为即是一个空map的行为。我们可以等价地将这个操作写
+成Value(nil).Get("item")，但是如果你直接写nil.Get("item")的话是无法通过编译的，因为nil的字面
+量编译器无法判断其准备类型。所以相比之下，最后的那行m.Add的调用就会产生一个panic，因
+为他尝试更新一个空map。
+
+6.3. 通过嵌入结构体来扩展类型
+type ColoredPoint struct {
+*Point
+Color color.RGBA
+}
+p := ColoredPoint{&Point{1, 1}, red}
+q := ColoredPoint{&Point{5, 4}, blue}
+fmt.Println(p.Distance(*q.Point)) // "5"  【*和.的优先级】
+q.Point = p.Point // p and q now share the same Point
+p.ScaleBy(2)
+fmt.Println(*p.Point, *q.Point) // "{2 2} {2 2}"
+
+#先直接在当下类型中查找方法， 再在嵌套类型中查找，执行的是递归查找
+When the compiler res olves a
+sele ctor such as p.ScaleBy to a met hod, it first lo oks for a direc tly declared method named
+ScaleBy, then for met hods promoted once from ColoredPoint’s embedde d fields, then for
+methods promoted twice from embedde d fields within Point and RGBA, and so on. The compiler
+rep orts an error if the selec tor was ambiguous because two met hods were promoted from
+the same rank.
+
+var cache = struct {
+    sync.Mutex
+    mapping map[string]string
+}{
+    mapping: make(map[string]string),
+}
+func Lookup(key string) string {
+    cache.Lock()
+    v := cache.mapping[key]
+    cache.Unlock()
+    return v
+}
+
+6.4. 方法值和方法表达式
+#方法值：函数，绑定了特定类型的方法，可以被调用；有点像C++中通过对象调用方法
+Usual ly we selec t and cal l a met hod in the same expression, as in p.Distance(), but it’s possible
+to sep arate these two operat ions. The selec tor p.Distance yields a method value, a function
+that binds a met hod (Point.Distance) to a specific receiver value p. This function can
+then be invoked without a receiver value; it needs only the non-receiver arguments
+
+#方法表达式，用接收器作为第一参数，生成一个函数值；有点像C++中直接用类访问方法
+Amethod expression, written T.f or (*T).f where T is a type, yields a function value with a regular
+first parameter taking the place of the receiver
+#注意：(*T).f生成的方法表达式，第一个参数是指针，*T
+p := Point{1, 2}
+q := Point{4, 6}
+distance := Point.Distance // method expression
+fmt.Println(distance(p, q)) // "5"
+fmt.Printf("%T\n", distance) // "func(Point, Point) float64"
+scale := (*Point).ScaleBy
+scale(&p, 2)
+fmt.Println(p) // "{2 4}"
+fmt.Printf("%T\n", scale) // "func(*Point, float64)"
+
+6.5位向量类型
+Go语言里的集合一般会用map[T]bool这种形式来表示，T代表元素类型。集合用map类型来表示虽
+然非常灵活，但我们可以以一种更好的形式来表示它。例如在数据流分析领域，集合元素通常是一
+个非负整数，集合会包含很多元素，并且集合会经常进行并集、交集操作，这种情况下，bit数组会
+比map表现更加理想
+
+6.6分装
+Go语言只有一种控制可见性的手段：大写首字母的标识符会从定义它们的包中被导出，小写字母
+的则不会。这种限制包内成员的方式同样适用于struct或者一个类型的方法。因而如果我们想要封
+装一个对象，我们必须将其定义为一个struct
+
+【这种基于名字的手段使得在语言中最小的封装单元是package，而不是像其它语言一样的类型。一
+个struct类型的字段对同一个包的所有代码都有可见性，无论你的代码是写在一个函数还是一个方
+法里。】
+
+只用来访问或修改内部变量的函数被称为setter或者getter，在命名一个getter方法时，我们通常会省略掉前面的Get前缀。
+这种简洁上的偏好也可以推广到各种类型的前缀比如Fetch，Find或者Lookup；不省略set/Set前缀
+package log
+type Logger struct {
+    flags int
+    prefix string
+    // ...
+}
+func (l *Logger) Flags() int
+func (l *Logger) SetFlags(flag int)
+func (l *Logger) Prefix() string
+func (l *Logger) SetPrefix(prefix string)
+

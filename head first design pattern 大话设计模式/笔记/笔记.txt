@@ -1,0 +1,337 @@
+第一章
+1.找出应用中可能需要变化之处，把它们独立出来，不要和那些不需要变化
+的代码混在一起。
+
+2.“针对接口编程”真正的意思是“针对超类型（supertype）编程”
+这里所谓的“ 接口” 有多个含义， 接口是一个“ 概念”，也是一种Java的interface构造。你可以在不涉及
+Java interface的情况下，“针对接口编程”，关键就在多态。利用多态，程序可以针对超类型编程，执行时会根据
+实际状况执行到真正的行为，不会被绑死在超类型的行为上。“针对超类型编程”这句话，可以更明确地说成“变
+量的声明类型应该是超类型，通常是一个抽象类或者是一个接口，如此，只要是具体实现此超类型的类所产生的对
+象，都可以指定给这个变量。这也意味着，声明类时不用理会以后执行时的真正对象类型
+
+3.设计原则：
+多用组合，少用继承；
+
+使用组合建立系统具有很大的弹性，不仅可将算法封装成类，更可以“在运行时动态改变行为”,只要组合
+的行为对象符合正确的接口标准即可。
+
+策略模式定义了算法族，分别封装起来，让他们之间可以相互替换，此模式让算法的变化独立于使用算法的客户。
+
+
+第二章
+1.观察者模式定义了对象之间的一对多依赖，这样一来，当一个对象改变状态时，它的所有依赖者都
+会收到通知并自动更新。
+
+实现观察者模式的方法不只一种，但是以包含Subject与Observer接口的类设计的做法最常见
+
+2.松耦合的威力
+当两个对象之间松耦合，它们依然可以交互，但是不太清楚彼此的细节。
+
+观察者模式提供了一种对象设计，让主题和观察者之间松耦合。
+
+设计原则：为了交互对象之间的松耦合设计而努力。
+
+松耦合的设计之所以能让我们建立有弹性的OO系统，能够应对变化，
+是因为对象之间的互相依赖降到了最低。
+
+Java有内置的观察者模式
+
+
+第三章 装饰者模式 
+
+利用继承设计子类的行为，是在编译时静态决定的，而且所有的子类都会
+继承到相同的行为。然而，如果能够利用组合的做法扩展对象的行为，就可以在
+运行时动态地进行扩展
+
+通过动态地组合对象，可以写新的代码添加新功能，而
+无须修改现有代码。既然没有改变现有代码，那么引进bug或产生意外副作用的机
+会将大幅度减少
+
+设计原则：类应该对扩展开放，对修改关闭。
+
+我们的目标是允许类容易扩展，在不修改现有代码的情况下，就可搭配
+新的行为。如能实现这样的目标，有什么好处呢？这样的设计具有弹性
+可以应对改变，可以接受新的功能来应对改变的需求。
+
+你需要把注意力集中在设计中
+最有可能改变的地方，然后应用开放-关闭原则
+
+在选择需要被扩展的代码部分时要小心。每个地方都采用开放-关闭原则，
+是一种浪费，也没必要，还会导致代码变得复杂且难以理解
+
+·装饰者和被装饰对象有相同的超类型。
+¸ 你可以用一个或多个装饰者包装一个对象。
+¸ 既然装饰者和被装饰对象有相同的超类型，所以在任何需要原始对象（被包装的）的场合，
+可以用装饰过的对象代替它。
+¸ 装饰者可以在所委托被装饰者的行为之前与/或之后，加上自己的行为，以达到特定的目的。
+¸ 对象可以在任何时候被装饰，所以可以在运行时动态地、不限量地用你喜欢的装饰者来装饰
+对象
+
+装饰者模式动态地将责任附加到对象上。
+若要扩展功能，装饰者提供了比继承更有弹性的替代方案。
+
+装饰者和被装饰者必须是一样的类型，也就
+是有共同的超类，这是相当关键的地方。在这里，我们利用继承达到“类型匹配”，而不是利
+用继承获得“行为”。
+
+如果依赖继承，那么类的行为只能在编译时静态决定。换句话说，行为如果不是来自
+超类，就是子类覆盖后的版本。反之，利用组合，可以把装饰者混合着用……而且是在“运行
+时。
+
+注：具体组件和抽象装饰者继承自抽象组件
+如果你回头去看看装饰者模式的类图，将发现我们已经完成了抽象组
+件（Beverage），有了具体组件（HouseBlend），也有了抽象装饰
+者（CondimentDecorator）
+
+P101 Java I/O装饰
+
+ 
+第四章 工厂模式
+P117定义简单工厂 
+abstract Product factoryMethod(String type)
+1.A factory method is abstract so the subclasses are counted on to handle object creation.
+2.A factory method returns a Product that is typically used within methods defined
+in the superclass.
+3.factory method isolates the client (the code in the superclass, like orderPizza())
+from knowing what kind of concrete Product is actually created.
+4.A factory method may be parameterized (or not) to select among several variations of a product
+
+P143图
+
+The Factory Method Pattern defines an interface
+for creating an object, but lets subclasses decide which
+class to instantiate. Factory Method lets a class defer
+instantiation to subclasses.
+
+Dependency Inversion Principle
+Design Principle：
+Depend upon abstractions. Do not
+depend upon concrete classes
+
+It suggests that our
+high-level components should not depend on our low-level
+components; rather, they should both depend on abstractions
+
+The following guidelines can help you avoid OO designs that violate
+the Dependency Inversion Principle：
+·No variable should hold a reference to a concrete class.
+<If you use new, you’ll be holding
+a reference to a concrete class.
+Use a factory to get around that!>
+·No class should derive from a concrete class.
+<If you derive from a concrete class,
+you’re depending on a concrete class.
+Derive from an abstraction, like an
+interface or an abstract class.>
+·No method should override an implemented method of
+any of its base classes.
+<If you override an implemented method,
+then your base class wasn’t really an
+abstraction to start with. Those
+methods implemented in the base class are
+meant to be shared by all your subclasses.>
+
+For instance, if you
+have a class that isn’t likely to change, and you know it, then it’s not the
+end of the world if you instantiate a concrete class in your code.
+
+The Abstract Factory Pattern provides an interface
+for creating families of related or dependent objects
+without specifying their concrete classes.
+
+第五章 
+The Singleton Pattern ensures a class has only one
+instance, and provides a global point of access to it.
+
+public class Singleton {
+  private static Singleton uniqueInstance;
+  // other useful instance variables here
+  private Singleton() {}
+  public static Singleton getInstance() {
+    if (uniqueInstance == null) {
+        uniqueInstance = new Singleton(); //延迟实例化
+    }
+     return uniqueInstance;
+    }
+  // other useful methods here
+}
+
+单件模式在多线程中的应用：
+1.用synchronized防止并发
+public static synchronized Singleton getInstance() {
+  if (uniqueInstance == null) {
+    uniqueInstance = new Singleton();
+  }
+}
+2.急切实例化，提前实例静态对象
+public class Singleton {
+  private static Singleton uniqueInstance = new Singleton();
+  private Singleton() {}
+    public static Singleton getInstance() {
+      return uniqueInstance;
+    }
+}
+3.使用双重检查锁
+public class Singleton {
+  private volatile static Singleton uniqueInstance;
+  private Singleton() {}
+    public static Singleton getInstance() {
+      if (uniqueInstance == null) {
+        synchronized (Singleton.class) {
+          if (uniqueInstance == null) {
+            uniqueInstance = new Singleton();
+          }
+      }
+    }
+    return uniqueInstance;
+    }
+}
+
+第六章 the Command Pattern 
+The Command Pattern encapsulates a request as an
+object, thereby letting you parameterize other objects
+with different requests, queue or log requests, and support
+undoable operations
+
+命令模式的使用：queuing requests，logging requests
+
+第7章 the Adapter and Facade Patterns
+The Adapter Pattern converts the interface of a class
+into another interface the clients expect. Adapter lets
+classes work together that couldn’t otherwise because of
+incompatible interfaces.
+
+If it walks like a duck and quacks like a duck,
+then it might be a  turkey wrapped
+with a duck adapter...
+
+p245 类适配器，用多重继承实现
+
+//外观模式 
+The Facade Pattern provides a unifi ed interface to a
+set of interfaces in a subsytem. Facade defi nes a higherlevel
+interface that makes the subsystem easier to use.
+
+//最少知识原则
+Design Principle
+Principle of Least Knowledge -
+talk only to your immediate friends
+
+But what does this mean in real terms? It means when you
+are designing a system, for any object, be careful of the
+number of classes it interacts with and also how it comes to
+interact with those classes.
+This principle prevents us from creating designs that have
+a large number of classes coupled together so that changes
+in one part of the system cascade to other parts. When you
+build a lot of dependencies between many classes, you are
+building a fragile system that will be costly to maintain and
+complex for others to understand.
+
+Okay, but how do you keep from doing this? The principle
+provides some guidelines: take any object; now from any
+method in that object, the principle tells us that we should
+only invoke methods that belong to:
+ß The object itself
+ß Objects passed in as a parameter to the method
+ß Any object the method creates or instantiates
+ß Any components of the object
+
+第八章 模板方法模式
+the Template Method Pattern--Encapsulating Algorithms
+
+public abstract class CaffeineBeverage {
+
+//模板方法，方法里调用了个各种算法
+void final prepareRecipe() { //final关键字，不允许基类修改
+  brew();
+  pourInCup();
+  addCondiments();
+  boilWater();
+}
+
+abstract void brew();
+abstract void addCondiments();
+void boilWater() {
+// implementation
+}
+void pourInCup() {
+// implementation
+}
+}
+
+The Template Method Pattern defines the skeleton
+of an algorithm in a method, deferring some steps to
+subclasses. Template Method lets subclasses redefi ne
+certain steps of an algorithm without changing the
+algorithm’s structure.
+
+//钩子
+A hook is a method that is declared in the
+abstract class, but only given an empty
+or default implementation. This gives
+subclasses the ability to “hook into” the
+algorithm at various points, if they wish; a
+subclass is also free to ignore the hook.
+public class C{
+    void hook(){}
+}
+
+好莱坞原则
+The Hollywood Principle :
+Don’t call us, we’ll call you.
+
+With the Hollywood Principle, we allow low-level components
+to hook themselves into a system, but the high-level
+components determine when they are needed, and how. In
+other words, the high-level components give the low-level
+components a “don’t call us, we’ll call you” treatment.
+
+The Factory Method is a specialization of Template
+Method.
+
+第九章 迭代器和组合模式
+9 the Iterator and Composite Patterns
+The Iterator Pattern provides a way to
+access the elements of an aggregate object
+sequentially without exposing its underlying
+representation.
+
+//单一责任
+Design Principle
+A class should have only one
+reason to change
+
+Every responsibility of a class is an area of potential
+change. More than one responsibility means more
+than one area of change.
+
+This principle guides us to keep each class to a single
+responsibility
+
+//Java 5 的迭代器和集合
+Iterators and Collections in Java 5
+for/in语句
+for (Object obj: collection) {
+...
+}
+You need to use Java 5’s new generics feature to ensure for/
+in type safety. Make sure you read up on the details before
+using generics and for/in.
+
+//组合模式
+//树形结构：统一看待单个对象和对象组合
+The Composite Pattern allows you to
+compose objects into tree structures to
+represent part-whole hierarchies. Composite
+lets clients treat individual objects and
+compositions of objects uniformly.
+
+p369组合迭代器 
+
+第十章 状态模式
+//对象有一些状态，这些状态是类，实现共同的接口，动作发生时，
+//委托给装态类执行，实现状态转变
+The State Pattern allows an object to alter its behavior
+when its internal state changes. The object will appear to
+change its class.

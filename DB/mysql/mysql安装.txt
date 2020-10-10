@@ -1,0 +1,8 @@
+mysql安装
+https://dev.mysql.com/doc/mysql-repo-excerpt/8.0/en/linux-installation-yum-repo.html
+
+1.Adding the MySQL Yum Repository
+Once the MySQL Yum repository is enabled on your system, any system-wide update by the yum update command 
+will upgrade MySQL packages on your system and also replace any native third-party packages, if Yum finds 
+replacements for them in the MySQL Yum repository; see Chapter 3, Upgrading MySQL with the MySQL Yum Repository
+ and, for a discussion on some possible effects of that on your system, see Upgrading the Shared Client Libraries. 

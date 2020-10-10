@@ -1,0 +1,37 @@
+goquery学习
+goquery - a little like that j-thing, only in Go
+
+1.goquery 基于包net/html和cascadia。net/html 编译返回nodes，而不是DOM树
+goquery brings a syntax and a set of features similar to jQuery to the Go language. 
+It is based on Go's net/html package and the CSS Selector library cascadia. Since the 
+net/html parser returns nodes, and not a full-featured DOM tree, jQuery's 
+stateful manipulation functions (like height(), css(), detach()) have been left off.
+
+# net/html parser需要UTF-8,goquery也是；调用者有责任确保HTML文件按UTF-8编码
+Also, because the net/html parser requires UTF-8 encoding, so does goquery: 
+it is the caller's responsibility to ensure that the source 
+document provides UTF-8 encoded HTML. See the wiki for various options to do this.
+
+语法以及函数名等尽量类似于jQuery
+
+2.API
+Document holds the root document node as the initial Selection value to manipulate.
+#有一个选择器字符串
+with a selector string argument is called XxxFiltered() (e.g.: PrevFiltered())
+#需要一个参数，用于selector string version
+ requires one argument, the same name as jQuery is used for the selector string version (e.g.: Is())
+#接受一个*Selection object 
+The signatures accepting a jQuery object as argument are defined in goquery as XxxSelection() 
+and take a *Selection object as argument (e.g.: FilterSelection())
+#接受可变参数，类型为*html.Node
+XxxNodes() and take a variadic argument of type *html.Node (e.g.: FilterNodes())
+#接受一个函数
+XxxFunction() and take a function as argument (e.g.: FilterFunction())
+#接受一个Matcher接口
+ be called with a selector string have a corresponding version that take a Matcher interface
+ and are defined as XxxMatcher() (e.g.: IsMatcher())
+ 
+3.处理非UTF-8html Pages 
+Handle Non-UTF8 html Pages
+#用iconv-go转换，见https://github.com/PuerkitoBio/goquery/wiki/Tips-and-tricks
+$ go get -u github.com/djimenez/iconv-go

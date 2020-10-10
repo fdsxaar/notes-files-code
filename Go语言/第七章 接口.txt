@@ -1,0 +1,268 @@
+satisfied implicitly：
+In other words, there’s no need to
+de clare all the interfaces that a given concrete typ e satisfies; simply possessing the necessary
+methods is enoug h. This desig n lets you create new interfaces that are sat isfied by existing
+concrete typ es without changing the existing typ es, which is par tic ularly useful for typ es
+defined in packages that you don’t control.
+
+7.1. 接口约定
+fmt.Printf它会把结果写到标准输出和fmt.Sprintf它会把结果以字符串的形式返回，两个函数都使用了另一个函数fmt.Fprintf
+来进行封装。
+
+#传递一个具有writer方法的类型，io.writer 开始工作，处理参数
+The io.Writer interface defines the contrac t between Fprintf and its cal lers. On the one
+hand, the contrac t requires that the cal ler provide a value of a concrete typ e li ke *os.File or
+*bytes.Buffer that has a met hod cal le d Write with the appropriate sig nature and behavior.
+On the other hand, the contrac t guarantees that Fprintf wi l l do its job given any value that
+satisfies the io.Writer interface
+
+除了io.Writer这个接口类型，还有另一个对fmt包很重要的接口类型。Fprintf和Fprintln函数向类型
+提供了一种控制它们值输出的途径
+
+给一个类型定义String方法，可以让它满足最广泛使用之一的接口类
+型fmt.Stringer：
+package fmt
+    // The String method is used to print values passed
+    // as an operand to any format that accepts a string
+    // or to an unformatted printer such as Print.
+    type Stringer interface {
+    String() string
+}
+
+7.2接口类型
+Reader可以代表任意可以读取bytes的类型，Closer可以是任意可以关闭的值，例如一
+个文件或是网络链接。
+
+嵌入式接口；
+
+7.3. 实现接口的条件
+The assig nability rule (§2.4.2) for interfaces is ver y simple: an expression may be assig ned to
+an interface only if its typ e satisfies the interface.
+
+在第6.5章中，IntSet类型的String方法的接收者是一个指针类型，所
+以我们不能在一个不能寻址的IntSet值上调用这个方法：
+type IntSet struct { /* ... */ }
+func (*IntSet) String() string
+var _ = IntSet{}.String() // compile error: String requires *IntSet receiver
+但是我们可以在一个IntSet值上调用这个方法：
+var s IntSet
+var _ = s.String() // OK: s is a variable and &s has a String method
+然而，由于只有IntSet类型有String方法，所有也只有IntSet类型实现了fmt.Stringer接口：
+var _ fmt.Stringer = &s // OK
+var _ fmt.Stringer = s // compile error: IntSet lacks String method
+
+对于创建的一个interface{}值持有一个boolean，float，string，map，pointer，或者任意其它的类
+型；我们当然不能直接对它持有的值做操作，因为interface{}没有任何方法。
+
+因为接口实现只依赖于判断的两个类型的方法，所以没有必要定义一个具体类型和它实现的接口之
+间的关系。也就是说，尝试文档化和断言这种关系几乎没有用，所以并没有通过程序强制定义。下
+面的定义在编译期断言一个*bytes.Buffer的值实现了io.Writer接口类型:
+// *bytes.Buffer must satisfy io.Writer
+var w io.Writer = new(bytes.Buffer)
+因为任意bytes.Buffer的值，甚至包括nil通过(bytes.Buffer)(nil)进行显示的转换都实现了这个接口，
+所以我们不必分配一个新的变量。并且因为我们绝不会引用变量w，我们可以使用空标识符来来进
+行代替。总的看，这些变化可以让我们得到一个更朴素的版本：
+// *bytes.Buffer must satisfy io.Writer
+var _ io.Writer = (*bytes.Buffer)(nil)
+非空的接口类型比如io.Writer经常被指针类型实现，尤其当一个或多个接口方法像Write方法那样隐
+式的给接收者带来变化的时候。一个指向结构体的指针才是最常见的方法接收者
+
+#提取共性做成接口
+Each grouping of concrete types based on their shared behaviors can be expressed as an interface
+type.
+
+7.4. Parsing Flags with flag.Value
+#命令行参数
+
+7.5 接口值
+#全部内容都重要
+接口值由两部分组成：动态类型--类型描述符和动态值
+
+#类型描述符也为nil
+var w io.writer #接口值是nil,类型描述符和动态值是nil
+var b *bytes.buffer #动态类型是*bytes.buffer，但是值是nil
+做if判断时，
+if(w) #false
+if(b) #true
+如果 w = b,但是函数调用b.write会panic，见
+7.5.1. Caveat: An Int erface Containing a Nil Pointer Is NonNil
+
+
+#比较
+Interface values may be compared using == and !=. Two interface values are equal if both are
+ni l, or if their dynamic typ es are identical and their dynamic values are equal according to the
+usual behavior of == for that typ e. Because interface values are comparable, they may be used
+as the keys of a map or as the operand of a switch statement.
+
+However, if two interface values are compared and have the same dynamic typ e, but that typ e
+is not comparable (a slice, for instance), then the comparison fai ls with a panic:
+var x interface{} = []int{1, 2, 3}
+
+fmt.Println(x == x) // panic: comparing uncomparable type []int
+In this respect, interface typ es are unusual. Other typ es are either safely comparable (like
+basic typ es and pointers) or not comparable at all (li ke slices, maps, and functions), but when
+comparing interface values or aggregate typ es that contain interface values, we must be aware
+of the potential for a panic. A simi lar risk exists when using interfaces as map keys or switch
+operands. Only compare interface values if you are cer tain that they contain dynamic values
+of comparable typ es
+
+使用fmt包的%T获得接口的动态类型
+var w io.Writer
+fmt.Printf("%T\n", w) // "<nil>"
+w = os.Stdout
+fmt.Printf("%T\n", w) // "*os.File"
+
+7.6. sort.Interface接口
+#Go中，一个字多长
+The var iable tracks below contains a playlist. (One of the authors ap olog izes for the other
+author’s music al tastes.) Each element is indirec t, a pointer to a Track. Although the code
+below would work if we stored the Tracks direc tly, the sort function will swap many pairs of
+elements, so it will run faster if each element is a pointer, which is a single machine word,
+instead of an entire Track, which mig ht be eight words or more.
+
+#存储格式是指针？
+var tracks = []*Track{
+{"Go", "Delilah", "From the Roots Up", 2012, length("3m38s")},
+{"Go", "Moby", "Moby", 1992, length("3m37s")},
+{"Go Ahead", "Alicia Keys", "As I Am", 2007, length("4m36s")},
+{"Ready 2 Go", "Martin Solveig", "Smash", 2011, length("4m24s")},
+}
+#不用解引用指针，通过.操作符直接访问
+for _, t := range tracks {
+fmt.Fprintf(tw, format, t.Title, t.Artist, t.Album, t.Year, t.Length)
+}
+
+#自己写slice的排序函数，关键写三个接口函数
+
+7.7. http.Handler接口
+String函数以及格式打印的问题
+
+net/http provides ServeMux, a request
+multiplexer, to simplif y the associ ation bet ween URLs and handlers. A ServeMux ag gregates a
+collec tion of http.Handlers into a single http.Handler. Again, we see that dif ferent typ es
+satisf ying the same interface are substitutable: the web ser ver can dispatch requests to any
+http.Handler, regardless of which concrete typ e is behind it.
+
+#要添加多个处理函数，只需调用http.HandleFunc;To use DefaultServeMux
+#as the server’s main handler, we needn’t pass it to ListenAndServe; nil will do.
+#没有显示创建mux，DefaultServeMux是默认的全局mux；
+#Web服务器用一个新的goroutine调用处理函数，所以要考虑并发、锁等问题
+gopl.io/ch7/http4
+func main() {
+    db := database{"shoes": 50, "socks": 5}
+    http.HandleFunc("/list", db.list)
+    http.HandleFunc("/price", db.price)
+    log.Fatal(http.ListenAndServe("localhost:8000", nil))
+}
+
+7.8 error接口
+
+7.9. Example: Expression Evaluator
+eval求值；
+
+通过分离静态检查和动态检查，在程序运行前发现错误
+
+7.10. Type Assertions
+x.(T)，英文原版讲解的很清楚，x是一个接口值，分两种情况：
+1）如果T是具体类型，则判断x的动态类型是否与T相同，whether x’s dynamic typ e is identical to T.
+断言结果是动态值，类型为T
+2）如果T是接口类型，the type assertion checks whether x’s dynamic type satisfies T.
+如果断言成功，结果仍然是接口值x，但是具有接口类型T（If this check succeeds, the dynamic value is not extracted;
+the result is still an interface value with the same type and value components, but the result
+has the interface type T. In other words, a type assertion to an interface type changes the type
+of the expression, making a different (and usually larger) set of met hods accessible, but it
+preserves the dynamic type and value components inside the interface value）
+
+No matter what type was asserted, if the operand is a nil interface value, the typ e assertion
+fails. A type assertion to a less restrictive interface type (one with fewer met hods) is rarely
+needed, as it behaves just like an assignment, except in the nil case.
+w = rw // io.ReadWriter is assignable to io.Writer
+w = rw.(io.Writer) // fails only if rw == nil
+
+Of ten we’re not sure of the dynamic typ e of an interface value, and we’d like to test whether it
+is some partic ular typ e. If the type assertion appears in an assig nment in which two results are
+exp ected, such as the following declarat ions, the operat ion does not panic on fai lure but
+instead retur ns an additional second result, a boolean indicating success:
+var w io.Writer = os.Stdout
+f, ok := w.(*os.File) // success: ok, f == os.Stdout
+b, ok := w.(*bytes.Buffer) // failure: !ok, b == nil
+
+When the operand of a typ e assertion is a var iable, rat her than invent another name for the
+new local variable, you’ll sometimes see the original name reused, shadowing the original, like
+this:
+if w, ok := w.(*os.File); ok {
+    // ...use w...
+}
+
+7.11. Discriminating Errors with Type Assertions
+Consider the set of errors returned by file operat ions in the os package. I/O can fail for any
+number of reasons, but three kinds of failure often must be handled dif ferently: file already
+exists (for create operations), file not found (for read operat ions), and permission denied.
+
+#两个不相同类型进行比较
+return err == syscall.ENOENT || err == ErrNotExist
+
+7.12. Querying Behaviors with Interface Type Assertions
+// writeString writes s to w.
+// If w has a WriteString method, it is invoked instead of w.Write.
+func writeString(w io.Writer, s string) (n int, err error) {
+    type stringWriter interface {
+        WriteString(string) (n int, err error)
+}
+    if sw, ok := w.(stringWriter); ok {
+        return sw.WriteString(s) // avoid a copy
+    }
+    return w.Write([]byte(s)) // allocate temporary copy
+}
+在http包中定义了WriteString方法；一个具体类型满足通用接口类型io.write的同时，自己还定义了
+一个特有的方法，接口类型断言 sw, ok := w.(stringWriter); ，判断具体类型类型是否满足接口stringWriter
+的要求
+
+What’s cur ious in this example is that there is no standard interface that defines the
+WriteString method and specifies its required behavior. Fur thermore, whether or not a concrete
+typ e satisfies the stringWriter interface is deter mined only by its met hods, not by any
+de clared relat ionship bet ween it and the interface typ e. What this means is that the technique
+ab ove relies on the assumption that if a typ e satisfies the interface below, then
+WriteString(s) must have the same effec t as Write([]byte(s)).
+
+The writeString function above uses a typ e assertion to see whether a value of a general
+interface typ e also sat isfies a more specific interface typ e, and if so, it uses the behaviors of the
+specific interface. This technique can be put to good use whether or not the quer ied interface
+is standard like io.ReadWriter or user-defined li ke stringWriter
+
+any typ e with a String method sat isfies the behavioral
+contrac t of fmt.Stringer, which is to retur n a str ing suitable for printing
+
+7.13. Type Switches
+A switch statement simplifies an if-else chain that per forms a ser ies of value equality tests.
+An analogous ty pe switch statement simplifies an if-else chain of typ e assertions 
+
+In its simplest form, a type switch looks like an ordinary switch statement in which the operand
+is x.(type)—that’s literally the key word type—and each case has one or moretyp es. A
+type switch enables a multi-way branch ba ed on the interface value’s dynamic type. The nil
+case matches if x == nil, and the default case matches if no other case does
+
+A typ e sw itch
+for sqlQuote would have these cas es:
+switch x.(type) {
+    case nil: // ...
+    case int, uint: // ...
+    case bool: // ...
+    case string: // ...
+    default: // ...
+}
+As with an ordinar y sw itch statement (§1.8), cas es are considered in order and, when a match
+is found, the cas e’s body is executed. Cas e order becomes sig nificant when one or more cas e
+types are interfaces, since then there is a possibility of two cas es matching. The position of the
+default case relative to the others is immater ial. No fallthrough is allowed.
+
+Notice that in the original function, the log ic for the bool and string cases needs access to
+the value extrac ted by the typ e assertion. Since this is typic al, the typ e sw itch statement has an
+extende d form that binds the ext racted value to a new var iable within each cas e:
+switch x := x.(type) { /* ... */ }
+Here we’ve cal le d the new var iables x too; as with type assertions, reuse of var iable names is
+common. Like a switch statement, a type sw itch implicitly creates a lexic al block, so the declarat
+ion of the new var iable cal le d x does not conflic t with a var iable x in an outer blo ck. Each
+case also implicitly creates a separate lexical block.
+
+、

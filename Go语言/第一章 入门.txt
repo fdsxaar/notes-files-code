@@ -1,0 +1,208 @@
+第一章 
+
+1.1
+1.Go是一门编译型语言，Go语言的工具链将源代码及其依赖转换成计算机的机器指令（译注：静态
+编译）。Go语言提供的工具都通过一个单独的命令go 调用， go 命令有一系列子命令。最简单的一
+个子命令就是run。这个命令编译一个或多个以.go结尾的源文件，链接库文件，并运行最终生成的
+可执行文件
+
+2.Go语言原生支持Unicode，它可以处理全世界任何语言的文本。
+
+3.来讨论下程序本身。Go语言的代码通过包（package）组织，包类似于其它语言里的库
+（libraries）或者模块（modules）。一个包由位于单个目录下的一个或多个.go源代码文件组成,
+目录定义包的作用。每个源文件都以一条package 声明语句开始，这个例子里就是package main , 表
+示该文件属于哪个包，紧跟着一系列导入（import）的包，之后是存储在这个文件里的程序语句。
+
+必须恰当导入需要的包，缺少了必要的包或者导入了不需要的包，程序都无法编译通过。这项严格
+要求避免了程序开发过程中引入未使用的包
+
+import 声明必须跟在文件的package 声明之后。
+
+Go语言不需要在语句或者声明的末尾添加分号，除非一行上有多条语句。实际上，编译器会主动
+把特定符号后的换行符转换为分号, 因此换行符添加的位置会影响Go代码的正确解析（译注：比如
+行末是标识符、整数、浮点数、虚数、字符或字符串文字、关键
+字break 、continue 、fallthrough 或return 中的一个、运算符和分隔符++ 、‐‐ 、) 、] 或} 中的
+一个）。举个例子, 函数的左括号{ 必须和func 函数声明在同一行上, 且位于末尾，不能独占一行，
+而在表达式x + y 中，可在+ 后换行，不能在+ 前换行（译注：以+结尾的话不会被插入分号分隔
+符，但是以x结尾的话则会被分号分隔符，从而导致编译错误）
+
+Go语言在代码格式上采取了很强硬的态度。gofmt 工具把代码格式化为标准格式（译注：这个格式
+化工具没有任何可以调整代码格式的参数，Go语言就是这么任性），并且go 工具中的fmt 子命令
+会对指定包, 否则默认为当前目录, 中所有.go源文件应用gofmt 命令
+
+很多文本编辑器都可以配置为保存文件时自动执行gofmt ，这样你的源代码总会被恰当地格式化。
+还有个相关的工具， goimports ，可以根据代码需要, 自动地添加或删除import 声明。这个工具并
+没有包含在标准的分发包中，可以用下面的命令安装：
+$ go get golang.org/x/tools/cmd/goimports
+
+1.2. 命令行参数
+1.os.Args变量是一个字符串（string）的切片（slice）
+
+os.Args的第一个元素，os.Args[0], 是命令本身的名字；其它的元素则是程序启动时传给它的参
+数。s[m:n]形式的切片表达式，产生从第m个元素到第n1
+个元素的切片，下个例子用到的元素包含
+在os.Args[1:len(os.Args)]切片中。如果省略切片表达式的m或n，会默认传入0或len(s)，因此前面
+的切片可以简写成os.Args[1:]。
+
+程序导入了两个包，用
+括号把它们括起来写成列表形式, 而没有分开写成独立的import 声明。两种形式都合法，列表形式
+习惯上用得多。包导入顺序并不重要；gofmt工具格式化时按照字母顺序对包名排序
+import (
+"fmt"
+"os"
+)
+
+注释语句以// 开头。对于程序员来说，//之后到行末之间所有的内容都是注释，被编译器忽略。按
+照惯例，我们在每个包的包声明前添加注释；对于main package ，注释包含一句或几句话，从整体
+角度对程序做个描述。
+
+变量会在声明时直接初始化。如果变量没有显式初始
+化，则被隐式地赋予其类型的零值（zero value），数值类型是0，字符串类型是空字符串""
+var s, sep string
+
+符号:= 是短变量声明（short variable declaration）的
+一部分, 这是定义一个或多个变量并根据它们的初始值为这些变量赋予适当类型的语句。
+
+自增语句i++ 给i 加1；这和i += 1 以及i = i + 1 都是等价的。对应的还有i‐‐ 给i 减1。它们是语
+句，而不像C系的其它语言那样是表达式。所以j = i++ 非法，而且++和
+都只能放在变量名后面，
+因此‐‐i 也非法
+
+for _, arg := range os.Args[1:]
+每次循环迭代， range 产生一对值；索引以及在该索引处的元素值。这个例子不需要索引，
+但range 的语法要求, 要处理元素, 必须处理索引。一种思路是把索引赋值给一个临时变量, 如temp ,
+然后忽略它的值，但Go语言不允许使用无用的局部变量（local variables），因为这会导致编译错
+误。
+Go语言中这种情况的解决方法是用空标识符（blank identifier），即_ （也就是下划线）。空标识
+符可用于任何语法需要变量名但程序逻辑不需要的时候, 例如, 在循环里，丢弃不需要的循环索引,
+保留元素值。大多数的Go程序员都会像上面这样使用range 和_ 写echo 程序，因为隐式地而非显式
+地索引os.Args，容易写对。
+
+s := ""
+var s string
+var s = ""
+var s string = ""
+用哪种不用哪种，为什么呢？第一种形式，是一条短变量声明，最简洁，但只能用在函数内部，而
+不能用于包变量。第二种形式依赖于字符串的默认初始化零值机制，被初始化为""。第三种形式用
+得很少，除非同时声明多个变量。第四种形式显式地标明变量的类型，当变量类型与初值类型相同
+时，类型冗余，但如果两者类型不同，变量类型就必须了。实践中一般使用前两种形式中的某个，
+初始值重要的话就显式地指定变量的类型，否则使用隐式初始化。
+
+如果连接涉及的数据量很大，这种方式代价高昂。一种简单且高效的解决方案是使用strings 包的
+Join 函数：
+func main() {
+fmt.Println(strings.Join(os.Args[1:], " "))
+}
+
+map存储了键/值（key/value）的集合，对集合元素，提供常数时间的存、取或测试操作。键可以
+是任意类型，只要其值能用== 运算符比较，最常见的例子是字符串；值则可以是任意类型。这个
+例子中的键是字符串，值是整数。
+counts := make(map[string]int)
+
+正如for 循环一样， if 语句条件两边也不加括号，但是主体部分需要加。if 语句的else 部分是可
+选的，在if 的条件为false 时执行
+if n > 1 {
+fmt.Printf("%d\t%s\n", n, line)
+}
+
+map 中不含某个键时不用担心，首次读到新行时，等号右边的表达式counts[line] 的值将被计算为
+其类型的零值，对于int即0
+counts[line] = counts[line] + 1
+
+(%d %s)与C不同，后面对应的参数不加% "%d %s" , n ,line 
+
+bufio 包，它使处理输入和输出方便又高效。Scanner 类型是该包最有用的特性之一，它
+读取输入并将其拆成行或单词；通常是处理行形式的输入最简单的方法
+
+默认情况下， Printf 不会换行。按照惯例，以字母f 结尾的格
+式化函数，如log.Printf 和fmt.Errorf ，都采用fmt.Printf 的格式化准则。而以ln 结尾的格式化
+函数，则遵循Println 的方式，以跟%v 差不多的方式格式化参数，并在最后添加一个换行符。（译
+注：后缀f 指fomart ， ln 指line 。）
+
+注意countLines 函数在其声明前被调用。函数和包级别的变量（packagelevel
+entities）可以任意
+顺序声明，并不影响其被调用
+
+#make创建了一个数据结构的引用map
+A map is a reference to the data structure created by make. When a map is passed toafunction, the function receivesa copy of the reference, so any changes the cal le d func tion makes to
+the underly ing dat a structure will be visible through the caller’s map reference too
+注：dup的三个版本函数可以复用，是一种编程模式
+
+1.4
+常量声明的值必须是一个数字值、字符串或者一个固定的boolean值
+
+当我们import了一个包路径包含有多个单词的package时，比如image/color（image和color两个单
+词），通常我们只需要用最后那个单词表示这个包就可以。所以当我们写color.White时，这个变量
+指向的是image/color包里的变量，同理gif.GIF是属于image/gif包里的变量
+
+1.7
+server1
+在这些代码的背后，服务器每一次接收请求处理时
+都会另起一个goroutine，这样服务器就可以同一时间处理多个请
+
+Go语言允许这样的一个简单的语句结果作为循环
+的变量声明出现在if语句的最前面，这一点对错误处理很有用处；并且
+可以限制err这个变量的作用域
+if err := r.ParseForm(); err != nil {
+log.Print(err)
+}
+
+接口机制，
+handler := func(w http.ResponseWriter, r *http.Request) {
+lissajous(w)
+}
+http.HandleFunc("/", handler)
+
+1.8控制流：
+Go语言并不需要显式地在每一个case后写break，语言默认执行完case后的逻
+辑语句会自动退出。当然了，如果你想要相邻的几个case都执行同一逻辑的话，需要自己显式地写
+上一个fallthrough语句来覆盖这种默认行为。
+switch coinflip() {
+case "heads":
+	heads++
+case "tails":
+	tails++
+default:	
+	fmt.Println("landed on edge!")
+}
+A switch does not need an operand; it can just list the cases, each of which is a boole an
+expression:
+func Signum(x int) int {
+switch {
+case x > 0:
+	return +1
+default:
+	return 0
+case x < 0:
+	return -1
+}
+}
+
+像for和if控制语句一样，switch也可以紧跟一个简短的变量声明，一个自增表达式、赋值语句，或
+者一个函数调用(译注：比其它语言丰富)。
+
+break和continue语句会改变控制流。和其它语言中的break和continue一样，break会中断当前的循
+环，并开始执行循环之后的内容，而continue会中跳过当前循环，并开始执行下一次循环。这两个
+语句除了可以控制for循环，还可以用来控制switch和select语句(之后会讲到)，在1.3节中我们看
+到，continue会跳过内层的循环，如果我们想跳过的是更外层的循环的话，我们可以在相应的位置
+加上label，这样break和continue就可以根据我们的想法来continue和break任意循环。这看起来甚
+至有点像goto语句的作用了。当然，一般程序员也不会用到这种操作。这两种行为更多地被用到机
+器生成的代码中
+
+指针：
+Go语言在这两种范围中取了一种平衡。指
+针是可见的内存地址，&操作符可以返回一个变量的内存地址，并且*操作符可以获取指针指向的变
+量内容，但是在Go语言里没有指针运算，也就是不能像c语言里可以对指针进行加或减操作
+
+在你开始写一个新程序之前，最好先去检查一下是不是已经有了现成的库可以帮助你更高效地完成
+这件事情。你可以在 https://golang.org/pkg 和 https://godoc.org 中找到标准库和社区写的
+package
+
+godoc这个工具可以让你直接在本地命令行阅读标准库的文档
+go doc http.ListenAndServe
+
+注释： 我们之前已经提到过了在源文件的开头写的注释是这个源文件的文档。在每一个函数之前
+写一个说明函数行为的注释也是一个好习惯
+
+多行注释可以用 /* ... */ 来包裹，和其它大多数语言一样
+

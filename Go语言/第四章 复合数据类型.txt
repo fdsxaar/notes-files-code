@@ -1,0 +1,481 @@
+﻿4.1. 数组
+内置的len函数将返回数组中元素的个数
+
+使用数组字面值语法用一组值来初始化数组：
+var q [3]int = [3]int{1, 2, 3}
+var r [3]int = [3]int{1, 2}
+fmt.Println(r[2]) // "0"
+在数组字面值中，如果在数组的长度位置出现的是“...”省略号，则表示数组的长度是根据初始化值
+的个数来计算。因此，上面q数组的定义可以简化为
+q := [...]int{1, 2, 3}
+fmt.Printf("%T\n", q) // "[3]int"
+
+指定一个索引和值的列表的方式初始化
+type Currency int
+const (
+USD Currency = iota // 美元
+EUR // 欧元
+GBP // 英镑
+RMB // 人民币
+)
+symbol := [...]string{USD: "$", EUR: "€", GBP: "￡", RMB: "￥"}
+fmt.Println(RMB, symbol[RMB]) // "3 ￥"
+
+在这种形式的数组字面值形式中，初始化索引的顺序是无关紧要的，而且没用到的索引可以省略，
+和前面提到的规则一样，未指定初始值的元素将用零值初始化。例如，
+r := [...]int{99: ‐1}
+定义了一个含有100个元素的数组r，最后一个元素被初始化为1，
+其它元素都是用0初始化。
+
+如果一个数组的元素类型是可以相互比较的，那么数组类型也是可以相互比较的，这时候我们可以
+直接通过==比较运算符来比较两个数组，只有当两个数组的所有元素都是相等的时候数组才是相等
+的。不相等比较运算符!=遵循同样的规则
+
+Go语言对待数组的方式和其它很多编程语言不同，其它编程语言
+可能会隐式地将数组作为引用或指针对象传入被调用的函数。
+当然，我们可以显式地传入一个数组指针，那样的话函数通过指针对数组的任何修改都可以直接反
+馈到调用者。下面的函数用于给[32]byte类型的数组清零：
+func zero(ptr *[32]byte) {
+    for i := range ptr {
+    ptr[i] = 0
+    }
+}
+其实数组字面值[32]byte{}就可以生成一个32字节的数组。而且每个数组的元素都是零值初始化，
+也就是0。因此，我们可以将上面的zero函数写的更简洁一点：
+func zero(ptr *[32]byte) {
+    *ptr = [32]byte{}
+}
+虽然通过指针来传递数组参数是高效的，而且也允许在函数内部修改数组的值，但是数组依然是僵
+化的类型，因为数组的类型包含了僵化的长度信息。上面的zero函数并不能接收指向[16]byte类型
+数组的指针，而且也没有任何添加或删除数组元素的方法。由于这些原因，除了像SHA256这类需
+要处理特定大小数组的特例外，数组依然很少用作函数参数；相反，我们一般使用slice来替代数
+组。
+
+4.2. Slice
+<英文版的整个概括似乎不够严谨>
+
+Slice（切片）代表变长的序列，序列中每个元素都有相同的类型。一个slice类型一般写作[]T，其
+中T代表slice中元素的类型；slice的语法和数组很像，只是没有固定长度而已。
+
+slice（切片）代表变长的序列，序列中每个元素都有相同的类型。一个slice类型一般写作[]T，其
+中T代表slice中元素的类型；slice的语法和数组很像，只是没有固定长度而已
+
+#疑问，slice作为map的键？slice包含自己
+There are two reasons why deep equivalence is problemat ic. First, unlike array elements,
+the elements of a slice are indirect, making it possible for a slice to contain itself.
+Although there are ways to deal with such cases, none is simple, efficient, and most
+importantly, obvious.
+Second, because slice elements are indirec t, a fixed slice value may contain different elements
+at different times as the contents of the underlying array are modified. Because a hash table
+such as Go’s map typ e makes only shallow copies of its keys, it requires that equality for each
+key remain the same throughout the lifet ime of the hash table. Deep equivalence would thus
+make slices unsuitable for use as map keys. For reference typ es li ke pointers and channels, the
+== operator tests reference identity, that is, whether the two entities refer to the same thing. An
+analogous ‘‘shallow’’ equality test for slices could be useful, and it would solve the problem
+with maps, but the inconsistent treatment of slices and arrays by the == operator would be
+conf using. The safest choice is to disallow slice comparisons altogether.
+
+func reverse(s []int) # 反转函数
+
+要注意的是slice类型的变量s和数组类型的变量a的初始化语法的差异
+
+slice之间不能用==比较；标准库提供了高度优化的bytes.Equal函数来判断两个字节型slice是否相等
+（[]byte）
+
+#slice的零值是nil
+
+一个零值的slice等于nil。一个nil值的slice并没有底层数组。一个nil值的slice的长度和容量都是0，
+但是也有非nil值的slice的长度和容量也是0的，例如[]int{}或make([]int, 3)[3:]。与任意类型的nil值
+一样，我们可以用[]int(nil)类型转换表达式来生成一个对应类型slice的nil值。
+
+
+#内置的make函数创建一个指定元素类型、长度和容量的slice。容量部分可以省略，在这种情况
+下，容量将等于长度。
+make([]T, len)
+make([]T, len, cap) // same as make([]T, cap)[:len]
+
+4.1 append
+在循环中使用append函数构建一个由九个rune字符构成的slice，当然对应这个特殊的问题我们可
+以通过Go语言内置的[]rune("Hello, 世界")转换操作完成。
+
+当cap两倍扩展时，内部进行了复制操作，appendInt，与C++的内存分配策略类似
+func appendInt(x []int, y int) []int {
+    var z []int
+    zlen := len(x) + 1
+    if zlen <= cap(x) {
+    // There is room to grow. Extend the slice.
+        z = x[:zlen]
+} else {
+    // There is insufficient space. Allocate a new array.
+    // Grow by doubling, for amortized linear complexity.
+    zcap := zlen
+    if zcap < 2*len(x) {
+        zcap = 2 * len(x)
+}
+    z = make([]int, zlen, zcap)
+    copy(z, x) // a built‐in function; see text
+}
+    z[len(x)] = y
+    return z
+}
+内置的append函数可能使用比appendInt更复杂的内存扩展策略。因此，通常我们并不知道append
+调用是否导致了内存的重新分配，因此我们也不能确认新的slice和原始的slice是否引用的是相同的
+底层数组空间。同样，我们不能确认在原先的slice上的操作是否会影响到新的slice。因此，通常是
+将append返回的结果直接赋值给输入的slice变量：
+runes = append(runes, r)
+更新slice变量不仅对调用append函数是必要的，实际上对应任何可能导致长度、容量或底层数组
+变化的操作都是必要的。要正确地使用slice，需要记住尽管底层数组的元素是间接访问的，但是
+slice对应结构体本身的指针、长度和容量部分是直接访问的。要更新这些信息需要像上面例子那样
+一个显式的赋值操作。从这个角度看，slice并不是一个纯粹的引用类型，它实际上是一个类似下面
+结构体的聚合类型：
+type IntSlice struct {
+    ptr *int
+    len, cap int
+}
+
+内置的append函数则可以追加多个元素，甚至追加一个slice。
+
+内置的copy函数可以方便地将一个slice复制另一个相同类型的
+slice。copy函数的第一个参数是要复制的目标slice，第二个参数是源slice，目标和源的位置顺序
+和dst = src 赋值语句是一致的。两个slice可以共享同一个底层数组，甚至有重叠也没有问题。
+copy函数将返回成功复制的元素的个数（我们这里没有用到），等于两个slice中较小的长度，所以
+我们不用担心覆盖会超出目标slice的范围
+
+内置的append函数可以向slice追加多个元素，甚至追加一个slice。
+
+尽管没有用make成runes，但可以用append添加元素
+var runes []rune
+
+4.2.2. Slice内存技巧
+#在原有的slice上生成一个slice，共享相同的底层数据；或者分配新的内存，copy赋值一个不同的slice。
+slice生slice，生生不息
+
+一个slice可以用来模拟一个stack
+
+要删除slice中间的某个元素并保存原有的元素顺序，可以通过内置的copy函数将后面的子slice向前
+依次移动一位完成
+
+如果删除元素后不用保持原来顺序的话，我们可以简单的用最后一个元素覆盖被删除的元素
+
+4.3 Map
+在Go语言中，一个map就是一个哈希表的引用，map类型可以写为map[K]V，其中K和V分别对应
+key和value。map中所有的key都有相同的类型，所有的value也有着相同的类型，但是key和value
+之间可以是不同的数据类型。其中K对应的key必须是支持==比较运算符的数据类型，所以map可
+以通过测试key是否相等来判断是否已经存在。虽然浮点数类型也是支持相等运算符比较的，但是
+将浮点数用做key类型则是一个坏的想法，正如第三章提到的，最坏的情况是可能出现的NaN和任
+何浮点数都不相等。对于V对应的value数据类型则没有任何的限制。
+
+内置的make函数可以创建一个map：
+ages := make(map[string]int) // mapping from strings to ints
+我们也可以用map字面值的语法创建map，同时还可以指定一些最初的key/value：
+ages := map[string]int{
+"alice": 31,
+"charlie": 34,
+}
+
+创建空的map的表达式是map[string]int{}
+
+使用内置的delete函数可以删除元素
+
+所有这些操作是安全的，即使这些元素不在map中也没有关系；如果一个查找失败将返回value类
+型对应的零值
+ages["bob"] = ages["bob"] + 1
+ages["bob"] += 1
+ages["bob"]++
+
+但是map中的元素并不是一个变量，因此我们不能对map的元素进行取址操作：
+_ = &ages["bob"] // compile error: cannot take address of map element
+禁止对map元素取址的原因是map可能随着元素数量的增长而重新分配更大的内存空间，从而可能
+导致之前的地址无效
+
+要想遍历map中全部的key/value对的话，可以使用range风格的for循环实现，和之前的slice遍历语
+法类似
+
+Map的迭代顺序是不确定的，并且不同的哈希函数实现可能导致不同的遍历顺序。在实践中，遍历
+的顺序是随机的，每一次遍历的顺序都不相同。这是故意的，每次都使用随机的遍历顺序可以强制
+要求程序不会依赖具体的哈希函数实现。如果要按顺序遍历key/value对，我们必须显式地对key进
+行排序，可以使用sort包的Strings函数对字符串slice进行排序。下面是常见的处理方式：
+import "sort"
+var names []string
+for name := range ages { #获得键name的值
+    names = append(names, name)
+}
+sort.Strings(names)
+for _, name := range names {
+    fmt.Printf("%s\t%d\n", name, ages[name])
+}
+
+map类型的零值是nil，也就是没有引用任何哈希表。
+var ages map[string]int
+fmt.Println(ages == nil) // "true"
+fmt.Println(len(ages) == 0) // "true"
+map上的大部分操作，包括查找、删除、len和range循环都可以安全工作在nil值的map上，它们的
+行为和一个空的map类似。但是向一个nil值的map存入元素将导致一个panic异常：
+ages["carol"] = 21 // panic: assignment to entry in nil map
+在向map存数据前必须先创建map。
+
+通过key作为索引下标来访问map将产生一个value。如果key在map中是存在的，那么将得到与key
+对应的value；如果key不存在，那么将得到value对应类型的零值，正如我们前面看到的
+ages["bob"]那样。这个规则很实用，但是有时候可能需要知道对应的元素是否真的是在map之中。
+例如，如果元素类型是一个数字，你可以需要区分一个已经存在的0，和不存在而返回零值的0，可
+以像下面这样测试：
+age, ok := ages["bob"]
+if !ok { /* "bob" is not a key in this map; age == 0. */ }
+你会经常看到将这两个结合起来使用，像这样：
+if age, ok := ages["bob"]; !ok { /* ... */ }
+在这种场景下，map的下标语法将产生两个值；第二个是一个布尔值，用于报告元素是否真的存
+在。布尔变量一般命名为ok，特别适合马上用于if条件判断部分。
+
+和slice一样，map之间也不能进行相等比较；唯一的例外是和nil进行比较。要判断两个map是否包
+含相同的key和value，我们必须通过一个循环实现：
+func equal(x, y map[string]int) bool {
+if len(x) != len(y) {
+return false
+}
+for k, xv := range x {
+if yv, ok := y[k]; !ok || yv != xv {
+return false
+}
+}
+return true
+}
+要注意我们是如何用!ok来区分元素缺失和元素不同的。我们不能简单地用xv != y[k]判断，那样会
+导致在判断下面两个map时产生错误的结果：
+// True if equal is written incorrectly.
+equal(map[string]int{"A": 0}, map[string]int{"B": 42})
+
+Go语言中并没有提供一个set类型，但是map中的key也是不相同的，可以用map实现类似set的功
+能
+
+有时候我们需要一个map或set的key是slice类型，但是map的key必须是可比较的类型，但是slice
+并不满足这个条件。不过，我们可以通过两个步骤绕过这个限制。第一步，定义一个辅助函数k，
+将slice转为map对应的string类型的key，确保只有x和y相等时k(x) == k(y)才成立。然后创建一个
+key为string类型的map，在每次对map操作时先用k辅助函数将slice转化为string类型。
+var m = make(map[string]int)
+func k(list []string) string { return fmt.Sprintf("%q", list) }
+func Add(list []string) { m[k(list)]++ }
+func Count(list []string) int { return m[k(list)] }
+使用同样的技术可以处理任何不可比较的key类型，而不仅仅是slice类型。这种技术对于想使用自
+定义key比较函数的时候也很有用，例如在比较字符串的时候忽略大小写。同时，辅助函数k(x)也不
+一定是字符串类型，它可以返回任何可比较的类型，例如整数、数组或结构体等
+
+Map的value类型也可以是一个聚合类型，比如是一个map或slice。在下面的代码中，图graph的
+key类型是一个字符串，value类型map[string]bool代表一个字符串集合。从概念上讲，graph将一
+个字符串类型的key映射到一组相关的字符串集合，它们指向新的graph的key
+
+gopl.io/ch4/graph
+var graph = make(map[string]map[string]bool)
+func addEdge(from, to string) {
+    edges := graph[from]
+    if edges == nil {
+        edges = make(map[string]bool)
+        graph[from] = edges
+}
+    edges[to] = true
+}
+func hasEdge(from, to string) bool {
+    return graph[from][to]
+}
+其中addEdge函数惰性初始化map是一个惯用方式，也就是说在每个值首次作为key时才初始化
+
+4.4. 结构体
+通常一行对应一个结构体成员，成员的名字在前类型在后，不过如果相邻的成员类型如果相同的话
+可以被合并到一行，就像下面的Name和Address成员那样：
+type Employee struct {
+    ID int
+    Name, Address string
+    DoB time.Time
+    Position string
+    Salary int
+    ManagerID int
+}
+
+点操作符也可以和指向结构体的指针一起工作：
+var employeeOfTheMonth *Employee = &dilbert
+employeeOfTheMonth.Position += " (proactive team player)" #指针直接操作结构体成员
+相当于下面语句
+(*employeeOfTheMonth).Position += " (proactive team player)"
+
+通常一行对应一个结构体成员，成员的名字在前类型在后，不过如果相邻的成员类型如果相同的话
+可以被合并到一行，就像下面的Name和Address成员那样：
+type Employee struct {
+    ID int
+    Name, Address string
+    DoB time.Time
+    Position string
+    Salary int
+    ManagerID int
+}
+结构体成员的输入顺序也有重要的意义。我们也可以将Position成员合并（因为也是字符串类
+型），或者是交换Name和Address出现的先后顺序，那样的话就是定义了不同的结构体类型。通
+常，我们只是将相关的成员写到一起。
+如果结构体成员名字是以大写字母开头的，那么该成员就是导出的；这是Go语言导出规则决定
+
+一个命名为S的结构体类型将不能再包含S类型的成员：因为一个聚合的值不能包含它自身。（该
+限制同样适应于数组。）但是S类型的结构体可以包含*S 指针类型的成员，这可以让我们创建递归
+的数据结构，比如链表和树结构等
+
+二叉树实现插入排序：
+gopl.io/ch4/treesort
+
+结构体类型的零值是每个成员都是零值。通常会将零值作为最合理的默认值
+如果结构体没有任何成员的话就是空结构体，写作struct{}。它的大小为0，也不包含任何信息，但
+是有时候依然是有价值的。有些Go语言程序员用map来模拟set数据结构时，用它来代替map中布
+尔类型的value，只是强调key的重要性，但是因为节约的空间有限，而且语法比较复杂，所以我们
+通常会避免这样的用法。
+seen := make(map[string]struct{}) // set of strings
+// ...
+if _, ok := seen[s]; !ok {
+    seen[s] = struct{}{}
+    // ...first time seeing s...
+}
+
+4.4.1. 结构体面值
+type Point struct{ X, Y int }
+p := Point{1, 2}
+这里有两种形式的结构体面值语法，上面的是第一种写法，要求以结构体成员定义的顺序为每个结
+构体成员指定一个面值。它要求写代码和读代码的人要记住结构体的每个成员的类型和顺序，不过
+结构体成员有细微的调整就可能导致上述代码不能编译。因此，上述的语法一般只在定义结构体的
+包内部使用，或者是在较小的结构体中使用，这些结构体的成员排列比较规则
+
+其实更常用的是第二种写法，以成员名字和相应的值来初始化，可以包含部分或全部的成员，如
+1.4节的Lissajous程序的写法：
+anim := gif.GIF{LoopCount: nframes}
+在这种形式的结构体面值写法中，如果成员被忽略的话将默认用零值。因为，提供了成员的名字，
+所有成员出现的顺序并不重要
+
+你不能企图在外部包中用第一种顺序赋值的技巧来偷偷
+地初始化结构体中未导出的成员。
+package p
+type T struct{ a, b int } // a and b are not exported
+package q
+import "p"
+var _ = p.T{a: 1, b: 2} // compile error: can't reference a, b
+var _ = p.T{1, 2} // compile error: can't reference a, b
+
+结构体可以作为函数的参数和返回值。例如，这个Scale函数将Point类型的值缩放后返回：
+func Scale(p Point, factor int) Point {
+return Point{p.X * factor, p.Y * factor}
+}
+fmt.Println(Scale(Point{1, 2}, 5)) // "{5 10}" #打印一个结构体
+
+如果考虑效率的话，较大的结构体通常会用指针的方式传入和返回，
+func Bonus(e *Employee, percent int) int {
+return e.Salary * percent / 100
+}
+如果要在函数内部修改结构体成员的话，用指针传入是必须的；因为在Go语言中，所有的函数参
+数都是值拷贝传入的，函数参数将不再是函数调用时的原始变量
+
+因为结构体通常通过指针处理，可以用下面的写法来创建并初始化一个结构体变量，并返回结构体
+的地址：
+pp := &Point{1, 2}
+它是下面的语句是等价的
+pp := new(Point)
+*pp = Point{1, 2}
+不过&Point{1, 2}写法可以直接在表达式中使用，比如一个函数调用。
+
+4.4.2. 结构体比较
+如果结构体的全部成员都是可以比较的，那么结构体也是可以比较的，
+可比较的结构体类型和其他可比较的类型一样，可以用于map的key类型
+
+type Circle struct {
+    Point
+    Radius int
+}
+type Wheel struct {
+    Circle
+    Spokes int
+}
+得意于匿名嵌入的特性，我们可以直接访问叶子属性而不需要给出完整的路径：
+var w Wheel
+w.X = 8 // equivalent to w.Circle.Point.X = 8
+w.Y = 8 // equivalent to w.Circle.Point.Y = 8
+w.Radius = 5 // equivalent to w.Circle.Radius = 5
+w.Spokes = 20
+匿名成员Circle和Point都有自己的名字——就是命名的类型名字
+不幸的是，结构体字面值并没有简短表示匿名成员的语法， 因此下面的语句都不能编译通过：
+w = Wheel{8, 8, 5, 20} // compile error: unknown fields
+w = Wheel{X: 8, Y: 8, Radius: 5, Spokes: 20} // compile error: unknown fields
+结构体字面值必须遵循类型声明时的形状，
+gopl.io/ch4/embed
+w = Wheel{Circle{Point{8, 8}, 5}, 20}
+w = Wheel{
+    Circle: Circle{
+    Point: Point{X: 8, Y: 8},
+    Radius: 5,
+    },
+    Spokes: 20, // NOTE: trailing comma necessary here (and at Radius)【？】
+}
+fmt.Printf("%#v\n", w)
+// Output:
+// Wheel{Circle:Circle{Point:Point{X:42, Y:8}, Radius:5}, Spokes:20}
+需要注意的是Printf函数中%v参数包含的#副词，它表示用和Go语言类似的语法打印值。对于结构
+体类型来说，将包含每个成员的名字。
+
+因为匿名成员也有一个隐式的名字，因此不能同时包含两个类型相同的匿名成员，这会导致名字冲
+突。同时，因为成员的名字是由其类型隐式地决定的，所有匿名成员也有可见性的规则约束。在上
+面的例子中，Point和Circle匿名成员都是导出的。即使它们不导出（比如改成小写字母开头的point
+和circle），我们依然可以用简短形式访问匿名成员嵌套的成员
+w.X = 8 // equivalent to w.circle.point.X = 8
+但是在包外部，因为circle和point没有导出不能访问它们的成员，因此简短的匿名成员访问语法也
+是禁止的。
+
+In effect, the outer struct type gains
+not just the fields of the embedded type but its met hods too. This mechanism is the main way
+that complex object behaviors are composed from simpler ones. Composition is central to
+object-oriented programming in Go, and we’ll explore it further in Section 6.3.
+
+4.5. JSON
+基本的JSON类型有数字（十进制或科学记数法）、布尔值（true或false）、字符串，其中字符串
+是以双引号包含的Unicode字符序列，支持和Go语言类似的反斜杠转义特性，不过JSON使用的是
+\Uhhhh转义数字来表示一个UTF16编码
+
+这些基础类型可以通过JSON的数组和对象类型进行递归组合。一个JSON数组是一个有序的值序
+列，写在一个方括号中并以逗号分隔；一个JSON数组可以用于编码Go语言的数组和slice。一个
+JSON对象是一个字符串到值的映射，写成以系列的name:value对形式，用花括号包含并以逗号分
+隔；JSON的对象类型可以用于编码Go语言的map类型（key类型是字符串）和结构体。例如：
+boolean    true
+number     ‐273.15
+string     "She said \"Hello, BF\""
+array      ["gold", "silver", "bronze"]
+object     {"year": 1980,
+"event":   "archery",
+"medals":  ["gold", "silver", "bronze"]}
+
+type Movie struct {
+    Title string
+    Year int `json:"released"`
+    Color bool `json:"color,omitempty"`
+    Actors []string
+}
+
+将一个Go语言中类似movies的结构体slice转为JSON的过程叫编组（marshaling）。编组通过调用
+json.Marshal函数完成
+json.Marshal(movies)
+json.MarshalIndent(movies, "", " ")
+
+只有可导出的成员可以转换为JSON字段，这就是为什么我们将Go结构体里面的所有成员都定义为首字母大写的
+
+Year int `json:"released"`
+Color bool `json:"color,omitempty"`
+结构体的成员Tag可以是任意的字符串面值，但是通常是一系列用空格分隔的key:"value"键值对序
+列；因为值中含义双引号字符，因此成员Tag一般用原生字符串面值的形式书写。json开头键名对
+应的值用于控制encoding/json包的编码和解码的行为，并且encoding/...下面其它的包也遵循这个
+约定。成员Tag中json对应值的第一部分用于指定JSON对象的名字，比如将Go语言中的
+TotalCount成员对应到JSON中的total_count对象。Color成员的Tag还带了一个额外的omitempty选
+项，表示当Go语言结构体成员为空或零值时不生成JSON对象（这里false为零值）。果然，
+Casablanca是一个黑白电影，并没有输出Color成员。
+
+基于流式的解码器json.Decoder，它可以从一个输入流解码JSON数据
+
+4.6. 文本和HTML模板
+现在让我们转到html/template模板包。它使用和text/template包相同的API和模板语言，但是增加
+了一个将字符串自动转义特性，这可以避免输入字符串和HTML、JavaScript、CSS或URL语法产
+生冲突的问题。这个特性还可以避免一些长期存在的安全问题，比如通过生成HTML注入攻击，通
+过构造一个含有恶意代码的问题标题，这些都可能让模板输出错误的输出，从而让他们控制页面。
+
+We can suppress this auto-escaping behavior for fields that contain trusted HTML data by
+using the named string type template.HTML instead of string. Similar named types exist for
+trusted JavaScript, CSS, and URLs. The program below demonstrates the principle by using
+two fields with the same value but dif ferent typ es: A is a string and B is a template.HTML
+
