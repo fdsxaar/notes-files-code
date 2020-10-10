@@ -1,0 +1,13 @@
+touch
+
+nano
+
+通过链接（参见第3章）创建（multem）。
+ln -s test6.sh multem
+
+无法删除/root/LinuxScript/14 下 tmp_re_err
+
+补码 原码 反码  
+
+date的日期格式化字符
+

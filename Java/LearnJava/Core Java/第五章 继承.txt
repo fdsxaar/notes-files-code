@@ -1,0 +1,371 @@
+第 5 章 继承
+
+5.1 类、超类和子类
+public class Manager extends Employee
+{
+    添加方法和域
+}
+在Java 中， 所有的继承都是公有继承， 而没有C++ 中的私有继承和保
+护继承;
+关键字extends 表明正在构造的新类派生于一个已存在的类;
+
+前缀“ 超” 和“ 子” 来源于计算机科学和数学理论中的集合语言的术语。所有雇
+员组成的集合包含所有经理组成的集合。
+
+5.1.2 覆盖方法
+public double getSalaryO
+{
+    return salary + bonus; // won't work
+}
+因为Manager 类的getSalary 方法不能够直接地访问超类的私有域，
+可以使用特定的关键字super 解决这个问题：
+public double getSalaryO
+{
+    double baseSalary = super.getSalaryO*
+    return baseSalary + bonus;
+}
+
+5.1.3 子类构造器
+public Manager(St ring name, double salary, int year, int month, int day)
+{
+    super(name, salary, year , month, day) ;
+    bonus = 0;
+}
+由于Manager 类的构造器不能访问Employee 类的私有域， 所以必须利用Employee 类
+的构造器对这部分私有域进行初始化， 我们可以通过super 实现对超类构造器的调用。使用
+super 调用构造器的语句必须是子类构造器的第一条语句。
+
+如果子类的构造器没有显式地调用超类的构造器， 则将自动地调用超类默认（没有参数)
+的构造器。如果超类没有不带参数的构造器， 并且在子类的构造器中又没有显式地调用超类
+的其他构造器,则Java 编译器将报告错
+
+关键字this 有两个用途： 一是引用隐式参数， 二是调用该类其他的构造器， 同样，super 关
+键字也有两个用途：一是调用超类的方法，二是调用超类的构造器;
+
+一个对象变量（例如， 变量e ) 可以指示多种实际类型的现象被称为多态（ polymorphism)。
+在运行时能够自动地选择调用哪个方法的现象称为动态绑定（ dynamic binding)
+
+C++ 注释： 在Java 中， 不需要将方法声明为虚拟方法。动态绑定是默认的处理方式。如
+果不希望让一个方法具有虚拟特征， 可以将它标记为final
+
+5.1.4 继承层次
+由一个公共超类派生出来的所有类的集合被称为继承层次（ inheritance hierarchy ),
+
+5 . 1.5 多态
+有一个用来判断是否应该设计为继承关系的简单规则， 这就是“ is-a” 规则， 它
+表明子类的每个对象也是超类的对象
+
+is-a” 规则的另一种表述法是置换法则。它表明程序中出现超类对象的任何地方都可以
+用子类对象置换;
+
+可以将一个子类的对象赋给超类变量。
+Employee e;
+e = new Employee(. . .); // Employee object expected
+e - new Manager(. . .); // OK, Manager can be used as well
+
+在Java 程序设计语言中， 对象变量是多态的。一个Employee 变量既可以引用一个
+Employee 类对象， 也可以引用一个Employee 类的任何一个子类的对象
+
+参考例子:
+p145
+p155
+
+5.1.6 理解方法调用
+在覆盖方法时， 一定要保证返回类型
+的兼容性。允许子类将覆盖方法的返回类型定义为原返回类型的子类型。
+
+如果是private 方法、static 方法、final 方法（有关final 修饰符的含义将在下一节讲
+述）或者构造器， 那么编译器将可以准确地知道应该调用哪个方法， 我们将这种调用方式称
+为静态绑定（ static binding )。与此对应的是，调用的方法依赖于隐式参数的实际类型， 并且
+在运行时实现动态绑定
+
+在覆盖一个方法的时候，子类方法不能低于超类方法的可见性。特别是， 如果超类
+方法是public, 子类方法一定要声明为public。
+
+5.1.7 阻止继承：final 类和方法
+final类是禁止继承，final方法禁止覆盖，final域，构建对象时必须初始化
+
+有时候，可能希望阻止人们利用某个类定义子类。不允许扩展的类被称为final 类。如果
+在定义类的时候使用了final 修饰符就表明这个类是final 类
+
+public final class Executive extends Manager
+{
+
+}
+类中的特定方法也可以被声明为final。如果这样做，子类就不能覆盖这个方法,
+（ final 类中的所有方法自动地成为final 方法,而不包括域)。
+
+有些程序员认为： 除非有足够的理由使用多态性， 应该将所有的方法都声明为final。事
+实上，在C++ 和C# 中， 如果没有特别地说明， 所有的方法都不具有多态性。这两种做法可
+能都有些偏激。我们提倡在设计类层次时， 仔细地思考应该将哪些方法和类声明为finaL
+
+5.1.8 强制类型转换
+对象引用的转换语法与数值表达式的类型转换类似， 仅
+需要用一对圆括号将目标类名括起来，并放置在需要转换的对象引用之前就可以了。例如：
+Manager boss = (Manager) staff[0];
+进行类型转换的唯一原因是：在暂时忽视对象的实际类型之后， 使用对象的全部功能。
+
+将一个了-类的引用赋给一个超类
+变量， 编译器是允许的。但将一个超类的引用赋给一个子类变量， 必须进行类型转换， 这样
+才能够通过运行时的检査
+
+在进行类型转换之前， 先查看一下是否能够成功地转换。这个过程简单地使用
+instanceof 操作符就可以实现。例如：
+if (staff[1] instanceof Manager)
+{
+    boss = (Manager) staff[1];
+}
+最后， 如果这个类型转换不可能成功， 编译器就不会进行这个转换
+综上所述：
+•只能在继承层次内进行类型转换。
+•在将超类转换成子类之前，应该使用instanceof 进行检查。
+
+如果x 为null , 进行下列测试
+x instanceof C
+不会产生异常， 只是返回false。之所以这样处理是因为null 没有引用任何对象， 当
+然也不会引用C 类型的对象。
+
+5 . 1.9 抽象类
+包含一个或多个抽象方法的类本身必须被声明为抽象的,
+类即使不含抽象方法，也可以将类声明为抽象类。
+public abstract class Person
+{
+    public abstract String getDescriptionO；
+}
+除了抽象方法之外， 抽象类还可以包含具体数据和具体方法
+
+#子类若定义抽象方法，则就不是抽象类
+抽象方法充当着占位的角色， 它们的具体实现在子类中。扩展抽象类可以有两种选择。
+一种是在抽象类中定义部分抽象类方法或不定义抽象类方法，这样就必须将子类也标记为抽
+象类；另一种是定义全部的抽象方法，这样一来，子类就不是抽象的了。
+
+抽象类不能被实例化。也就是说， 如果将一个类声明为abstract , 就不能创建这个类的对
+象;
+
+可以定义一个抽象类的对象变量， 但是它只能引用非抽象子类的对象。例如，
+Person p = new Student("Vinee Vu" , "Economics") ;
+
+5.1.10 受保护访问
+在实际应用中，要谨慎使用protected 属性。假设需要将设计的类提供给其他程序员使
+用， 而在这个类中设置了一些受保护域， 由于其他程序员可以由这个类再派生出新类，并访
+问其中的受保护域。在这种情况下， 如果需要对这个类的实现进行修改， 就必须通知所有使
+用这个类的程序员。这违背了OOP 提倡的数据封装原则。
+
+Java 中的受保护部分对所有子类及同一个包中的所有其他类都可见。
+这与c++ 中的保护机制稍有不同， Java 中的protected 概念要比C++ 中的安全性差。
+
+5.2 Object： 所有类的超类
+Object 类是Java 中所有类的始祖， 在Java 中每个类都是由它扩展而来的;
+
+可以使用Object 类型的变量引用任何类型的对象：
+Object obj = new EmployeeC'Harry Hacker", 35000) ;
+
+当然， Object 类型的变量只能用于作为各种值的通用持有者。要想对其中的内容进行具体的
+操作， 还需要清楚对象的原始类型， 并进行相应的类型转换：
+Employee e = (Employee) obj ;
+在Java 中， 只有基本类型（ primitive types ) 不是对象， 例如， 数值、字符和布尔类型的
+值都不是对象。
+所有的数组类型，不管是对象数组还是基本类型的数组都扩展了Object 类。
+Employee[] staff = new Employee[10];
+obj = staff; // OK
+obj = new int[10]; // OK
+
+5.2.1 equals 方法
+#equal函数
+Object 类中的equals 方法用于检测一个对象是否等于另外一个对象。在Object 类中，这
+个方法将判断两个对象是否具有相同的引用。如果两个对象具有相同的引用， 它们一定是相
+等的。
+
+在子类中定义equals 方法时， 首先调用超类的equals。如果检测失败， 对象就不可能相
+等。如果超类中的域都相等， 就需要比较子类中的实例域
+
+//??
+5.2.2 相等测试与继承 
+
+5.2.4 toString 方法
+在Object 中还有一个重要的方法， 就是toString 方法， 它用于返回表示对象值的字符
+串
+
+最好通过调用getClaSS( ).getName( ) 获得类名的字符
+串，而不要将类名硬加到toString 方法中。
+public String toStringO
+{
+   return getClass().getNameO
+   + "[name=" + name
+   +'salary:" + salary
+   + ",hireDay=" + hireDay
+   + "]";
+}
+
+随处可见toString 方法的主要原因是： 只要对象与一个字符串通过操作符“ +” 连接起
+来，Java 编译就会自动地调用toString 方法，以便获得这个对象的字符串描述。例如，
+Point p = new Point(10, 20);
+String message = "The current position is " + p;
+// automatically invokes p.toString()
+
+在调用x.toString( ) 的地方可以用""+x 替这条语句将一个空串与x 的字符串
+表示相连接。这里的x 就是x.toString( )。 与toString 不同的是， 如果x 是基本类型， 这
+条语句照样能够执行
+
+如果x 是任意一个对象， 并调用
+System.out.println(x);
+println 方法就会直接地调用x.toString()，井打印输出得到的字符串
+
+数组继承了object 类的toString 方法， 数组类型将按照旧的格式
+打印，修正的方式是调用静态
+方法Arrays.toString。要想打印多维数组（即， 数组的数组）则需要调用Arrays.deepToString 方法
+
+强烈建议为自定义的每一个类增加toString 方法。这样做不仅自己受益， 而且所
+有使用这个类的程序员也会从这个日志记录支持中受益匪浅
+
+5. 3 泛型数组列表
+允许在运行时确定数组的大小，
+在Java 中， 解决这个问题最简单的方法是使用Java 中另外一个被称为
+ArrayList 的类。它使用起来有点像数组，但在添加或删除元素时， 具有自动调节数组容量的
+功能，而不需要为此编写任何代码。
+
+ArrayList 是一个采用类型参数（ type parameter ) 的泛型类（ generic class )。为了指定数
+组列表保存的元素对象类型， 需要用一对尖括号将类名括起来加在后面，
+ArrayList<Employee> staff = new ArrayList<Eniployee>0;
+Java SE 7 中， 可以省去右边的类型参数：
+ArrayList<Employee> staff = new ArrayListo()；
+
+如果已经清楚或能够估计出数组可能存储的元素数量， 就可以在填充数组之前调用
+ensureCapacity 方法：
+staff.ensureCapacity(lOO) ;
+这个方法调用将分配一个包含100 个对象的内部数组。然后调用100 次add, 而不用重新分
+配空间。
+另外，还可以把初始容量传递给ArrayList 构造器：
+ArrayList< Employee> staff = new ArrayListo(lOO) ;
+
+一旦能够确认数组列表的大小不再发生变化， 就可以调用trimToSize 方法。这个方法将
+存储区域的大小调整为当前元素数量所需要的存储空间数目。垃圾回收器将回收多余的存储
+空间。
+
+C++ vector是值拷贝。如果a 和b 是两个向量， 賦值
+操作a = b 将会构造一个与b 长度相同的新向量a, 并将所有的元素由b 拷贝到a, 而在
+Java 中， 这条赋值语句的操作结果是让a 和b 引用同一个数组列
+
+5.3.1 访问数组列表元素
+使用get 和set 方法实现访问或改变数组元素的操作,
+而不使用人们喜爱的[ ] 语法格式。
+例如，要设置第i 个元素， 可以使用：
+staff.set(i , harry):
+它等价于对数组a 的元素赋值（数组的下标从0 开始)：
+a[i] = harry;
+
+ArrayList< Employee> list = new ArrayList<>(100) ; // capacity 100，size 0
+list.set(0, x) ; // no element  yet
+使用add 方法为数组添加新元素， 而不要使用set 方法， 它只能替换数组中已经存在
+的元素内容
+
+使用下列格式获得数组列表的元素:
+Employee e = staff .get (i) ;
+
+下面这个技巧可以一举两得， 既可以灵活地扩展数组， 又可以方便地访问数组元素。首
+先，创建一个数组， 并添加所有的元素。
+ArrayList<X> list = new ArrayListoQ;
+while (. . .)
+{
+   x = . .
+   list.add(x);
+}
+执行完上述操作后，使用toArray 方法将数组元素拷贝到一个数组中。
+X[] a = new XPtst.sizeO];
+list.toArray(a);
+
+除了在数组列表的尾部追加元素之外，还可以在数组列表的中间插入元素， 使用带索引
+参数的add 方法。
+int n = staff.sizeO / 2;
+staff.add(n, e) ;
+
+可以从数组列表中间删除一个元素。
+Employee e = staff.remove(n) ;
+
+对数组实施插人和删除元素的操作其效率比较低。对于小型数组来说， 这一点不必担
+心。但如果数组存储的元素数比较多， 又经常需要在中间位置插入、删除元素， 就应该考虑
+使用链表了
+
+可以使用“ foreach” 循环遍历数组列表：
+for (Employee e : staff)
+dosomething with e
+
+所有的基本类型都冇一个与之对应的类。
+例如,Integer 类对应基本类型int。通常， 这些类称为包装器（ wrapper ) 这些对象包装器类
+拥有很明显的名字：Integer、Long、Float、Double、Short、Byte、Character 、Void 和Boolean ( 前
+6 个类派生于公共的超类Number)。对象包装器类是不可变的， 即一旦构造了包装器， 就不
+允许更改包装在其中的值。同时， 对象包装器类还是final , 因此不能定义它们的子类
+
+假设想定义一个整型数组列表。而尖括号中的类型参数不允许是基本类型， 也就是说，
+不允许写成ArrayList<int>。这里就用到了Integer 对象包装器类。我们可以声明一个Integer
+对象的数组列表。
+ArrayList<Integer> list = new ArrayList<>()；
+警告： 由于每个值分别包装在对象中， 所以ArrayList<lnteger> 的效率远远低于int[ ] 数
+组。因此， 应该用它构造小型集合， 其原因是此时程序员操作的方便性要比执行效率更
+加重要
+
+ 有一个很有用的特性， 从而更加便于添加int 类型的元素到ArrayLisKlntegeP
+中。下面这个调用
+list.add(3);
+将自动地变换成
+list.add(Integer.value0f(3)) ;
+这种变换被称为自动装箱（autoboxing)
+当将一个Integer 对象赋给一个int 值时， 将会自动地拆箱
+编译器将下列语句：
+int n = list.get(i);
+翻译成
+int n = list.get(i).intValue();
+在算术表达式中也能够自动地装箱和拆箱
+Integer n = 3;
+n++;
+
+== 运算符也可以应用于对象包装器对象， 只不过检测的是对象是
+否指向同一个存储区域， 因此，下面的比较通常不会成立：
+Integer a = 1000;
+Integer b = 1000;
+if (a = b) . . .
+然而，Java 实现却有可能（ may) 让它成立。如果将经常出现的值包装到同一个对象中，
+这种比较就有可能成立。这种不确定的结果并不是我们所希望的。解决这个问题的办法是在
+两个包装器对象比较时调用equals 方法
+
+自动装箱规范要求boolean、byte、char 127， 介于-128 ~ 127 之间的short 和
+int 被包装到固定的对象中。例如， 如果在前面的例子中将a 和b 初始化为100， 对它们
+进行比较的结果一定成立
+
+由于包装器类引用可以为null , 所以自动装箱
+有可能会抛出一个NullPointerException 异常：
+Integer n = null;
+System.out.printing * n); // Throws NullPointerException
+另外， 如果在一个条件表达式中混合使用Integer 和Double 类型， Integer 值就会拆箱，
+提升为double, 再装箱为Double:
+Integer n = 1;
+Double x = 2.0;
+System.out.println(true ? n : x); // Prints 1.0
+
+装箱和拆箱是编译器认可的， 而不是虚拟机
+
+使用数值对象包装器还有另外一个好处。Java 设计者发现，可以将某些基本方法放置在
+
+包装器中， 例如， 将一个数字字符串转换成数值。
+要想将字符串转换成整型， 可以使用下面这条语句：
+int x = Integer.parselnt(s) ;
+这里与Integer 对象没有任何关系， parselnt 是一个静态方法。但Integer 类是放置这个方法的
+一个好地方
+
+如果想编写一个修改数值参数值的方法， 就需要使用在org.omg.CORBA 包中定义的
+持有者（ holder ) 类型， 包括IntHolder、BooleanHolder 等。每个持有者类型都包含'一个
+公有（！）域值， 通过它可以访问存储在其中的值。
+public static void triple(IntHolder x)
+{
+x.value = 3 * x.value;
+}
+
+5.5 参数数量可变的方法
+//全部
+
+5.6 枚举类
+//??
+
+5.7 反射
+//没看
+

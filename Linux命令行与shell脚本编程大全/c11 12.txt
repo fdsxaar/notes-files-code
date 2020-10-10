@@ -1,0 +1,224 @@
+第11 章 构建基本脚本
+11/test1文本
+
+shell可以让你将多个命令串起来，一次执行完成。如果要两个命令一起运行，可以
+把它们放在同一行中，彼此间用分号隔开，只要不超过最大命令行字符数255就行
+$ date ; who
+
+11.2 创建shell 脚本文件
+在创建shell脚本文件时，必须在文件的第一行指定要使用的shell。其格式为：
+#!/bin/bash
+在通常的shell脚本中，井号（#）用作注释行。shell并不会处理shell脚本中的注释行。然而，
+shell脚本文件的第一行是个例外，#后面的惊叹号会告诉shell用哪个shell来运行脚本
+
+$ echo $PATH 查看变量 
+$ ./test1  执行命令
+$ ls -l test1 显示权限
+$ chmod u+x test1 更改权限
+
+echo命令可用单引号或双引号来划定文本字符串。如果在字符串中用到了它们，你需要在
+文本中使用其中一种引号，而用另外一种来将字符串划定起来。
+$ echo "This is a test to see if you're paying attention"
+This is a test to see if you're paying attention
+$ echo 'Rich says "scripting is easy".'
+Rich says "scripting is easy".
+
+但如果想把文本字符串和命令输出显示在同一行中，该怎么办呢？可以用echo语句
+的-n参数。只要将第一个echo语句改成这样就行：
+echo -n "The time and date are: "
+
+shell维护着一组环境变量，用来记录特定的系统信息，可以用
+set命令来显示一份完整的当前环境变量列表
+
+在脚本中，你可以在环境变量名称之前加上美元符（$）来使用这些环境变量
+$ cat test2
+#!/bin/bash
+# display user information from the system.
+echo "User info for userid: $USER"
+echo UID: $UID
+echo HOME: $HOME
+
+在第一个字符串中可
+以将$USER系统变量放置到双引号中，而shell依然能够知道我们的意图
+
+$ echo "The cost of the item is $15"
+The cost of the item is 5
+只要脚本在引号中出现美元符，它就会以为你在引用一个变量。在
+这个例子中，脚本会尝试显示变量$1（但并未定义），再显示数字5。要显示美元符，你必须在它
+前面放置一个反斜线。
+$ echo "The cost of the item is \$15"
+The cost of the item is $15
+
+11.4.2 用户变量
+除了环境变量，shell脚本还允许在脚本中定义和使用自己的变量;
+
+内联输入重定向符号是远小于号（<<）。除了这个符号，你必须指定一个文本标记来划分输
+入数据的开始和结尾。任何字符串都可作为文本标记，但在数据的开始和结尾文本标记必须一致。
+command << marker
+data
+marker
+
+$ wc << EOF
+> 1
+> 2
+> 3
+> EOF
+
+
+expr 命令
+
+$ expr 5 * 2
+expr: syntax error
+$
+要解决这个问题，对于那些容易被shell错误解释的字符，在它们传入expr命令之前，需要使
+用shell的转义字符（反斜线）将其标出来。
+
+var3=$(expr $var2 / $var1)
+要将一个数学算式的结果赋给一个变量，需要使用命令替换来获取expr命令的输出：
+
+bash shell为了保持跟Bourne shell的兼容而包含了expr命令，但它同样也提供了一种更简单
+的方法来执行数学表达式。在bash中，在将一个数学运算结果赋给某个变量时，可以用美元符和
+方括号（$[ operation ]）将数学表达式围起来。
+$ var1=$[1 + 5]
+
+bash shell数学运算符只支持整数运算。若要进行任何实际的数学计算，这是一个巨大的限制。
+说明 z shell（zsh）提供了完整的浮点数算术操作
+
+shell中运行的每个命令都使用退出状态码（exit status）告诉shell它已经运行完毕。退出状态
+码是一个0～255的整数值，在命令结束运行时由命令传给shell。可以捕获这个值并在脚本中使用。
+
+Linux提供了一个专门的变量$?来保存上个已执行命令的退出状态码。对于需要进行检查的
+命令，必须在其运行完毕后立刻查看或使用$?变量。它的值会变成由shell所执行的最后一条命令
+的退出状态码。
+$ echo $?
+
+第12章 使用结构化命令
+if command
+    then
+commands
+fi 
+bash shell的if语句会运行if后面的那个命令。如果该命令的退出状态码（参见第11章）是0
+（该命令成功运行），位于then部分的命令就会被执行。如果该命令的退出状态码是其他值， then
+部分的命令就不会被执行，bash shell会继续执行脚本中的下一个命令。fi语句用来表示if-then
+语句到此结束。
+
+if command1
+then
+   commands
+elif command2
+then
+   more commands
+fi
+
+if command1
+then
+   commands
+elif command2
+then 
+   conmmands
+else 
+   commands 
+fi 
+在elif语句中，紧跟其后的else语句属于elif代码块 
+
+if command1
+then
+    command set 1
+elif command2
+then
+    command set 2
+elif command3
+then
+    command set 3
+elif command4
+then
+    command set 4
+fi
+
+test命令提供了在if-then语句中测试不同条件的途径。如果test命令中列出的条件成立，
+test命令就会退出并返回退出状态码0
+test condition
+
+if test condition
+then
+    commands
+fi
+如果不写test命令的condition部分，它会以非零的退出状态码退出，并执行else语句块。
+
+bash shell提供了另一种条件测试方法，无需在if-then语句中声明test命令。
+if [ condition ]
+then
+   commands
+fi
+注意，第一个方括号之后和第二个方括号之前必须加上一个空格;
+bash shell只能处理整数,不能在test命令中使用浮点值。
+
+
+字符串比较顺序
+ 大于号和小于号必须转义，否则shell会把它们当作重定向符号，把字符串值当作文件
+名；需要正确转义大于号；
+ 大于和小于顺序和sort命令所采用的不同。
+
+在比较测试中，大写字母被认为是小于小写字母的。但sort命令恰好相反。当你将同样的
+字符串放进文件中并用sort命令排序时，小写字母会先出现。这是由各个命令使用的排序技术
+不同造成的。
+比较测试中使用的是标准的ASCII顺序，根据每个字符的ASCII数值来决定排序结果。sort
+命令使用的是系统的本地化语言设置中定义的排序顺序。对于英语，本地化设置指定了在排序顺
+序中小写字母出现在大写字母前。
+
+if [ -z $val3 ]
+判断val3变量是否长度为0。这个变量并未在shell脚本中定义过，所以它的字符串长度仍然
+为0，尽管它未被定义过。
+
+在尝试从文件中读取数据之前，最好先测试一下文件是否可读。
+if [ -f file ]
+then 
+#
+fi 
+
+应该用-s比较来检查文件是否为空，尤其是在不想删除非空文件的时候。要留心的是，当
+-s比较成功时，说明文件中有数据。
+
+-G比较会检查文件的默认组，如果它匹配了用户的默认组，则测试成功
+
+检查文件日期
+在编写软件安装脚本时非常有用,-nt比较会判定一个文件是否比另一个文件新,
+-ot比较会判定一个文件是否比另一个文件旧,-ot比较会判定一个文件是否比另一个文件旧
+,比较不会先检查文件是否存在,在你尝试使用-nt或-ot比较文件之前，必须先确认文件是存在的。
+
+ [ condition1 ] && [ condition2 ]
+ [ condition1 ] || [ condition2 ]
+
+bash shell提供了两项可在if-then语句中使用的高级特性：
+ 用于数学表达式的双括号
+ 用于高级字符串处理功能的双方括号
+
+(( expression ))
+expression可以是任意的数学赋值或比较表达式。除了test命令使用的标准数学运算符，
+表12-4列出了双括号命令中会用到的其他运算符。
+
+if (( $val1 ** 2 > 90 ))
+注意，不需要将双括号中表达式里的大于号转义。这是双括号命令提供的另一个高级特性。
+      #!/bin/bash
+      2 #数字比较不再需要 -gt -ge 啦
+      3 if ((3>1))
+      4 then
+      5 echo "大于 "
+      6 else
+      7     echo "3<=4"
+      8 fi
+
+
+
+双方括号命令提供了针对字符串比较的高级特性。双方括号命令的格式如下：
+[[ expression ]]
+提供了test命令未提供的另一个特性——模式匹配（pattern matching）
+在模式匹配中，可以定义一个正则表达式来匹配字符串值
+
+case 命令
+case variable/value in
+pattern1 | pattern2) commands1;;
+pattern3) commands2;;
+*) default commands;;
+esac
+

@@ -1,0 +1,411 @@
+第7章 异常、断言和日志
+
+7.1.1 异常分类
+在Java 程序设计语言中， 异常对象都是派生于Throwable 类的一个实例，
+如果Java 中内置的异常类不能够满足需求，用户可以创建自己的异常类。
+
+Error 类层次结构描述了Java 运行时系统的内部错误和资源耗尽错误。应用程序不应该
+抛出这种类型的对象。如果出现了这样的内部错误， 除了通告给用户，并尽力使程序安全地
+终止之外， 再也无能为力了
+
+//图7-1
+在设计Java 程序时， 需要关注Exception 层次结构。这个层次结构又分解为两个分支：
+一个分支派生于RuntimeException ; 另一个分支包含其他异常。划分两个分支的规则是： 由
+程序错误导致的异常属于RuntimeException ; 而程序本身没有问题， 但由于像I/O 错误这类
+问题导致的异常属于其他异常
+
+派生于RuntimeException 的异常包含下面几种情况：
+•错误的类型转换。
+•数组访问越界i
+•访问null 指针
+不是派生于RuntimeException 的异常包括：
+•试图在文件尾部后面读取数据。
+•试图打开一个不存在的文件。
+•试图根据给定的字符串查找Class 对象， 而这个字符串表示的类并不存在,，
+“ 如果出现RuntimeException 异常， 那么就一定是你的问题” 是一条相当有道理的规则。
+应该通过检测数组下标是否越界来避免ArraylndexOutOfBoundsException 异常；应该通过在
+使用变量之前检测是否为null 来杜绝NullPointerException 异常的发生：
+
+Java 语言规范将派生于Error 类或RuntimeException 类的所有异常称为非受查
+( unchecked ) 异常， 所有其他的异常称为受查（ checked) 异常。
+
+7.1.2 声明受查异常
+方法应该在其首部声明所有可能抛出的异常，
+public Fi1elnputStream(String name) throws FileNotFoundException
+
+在遇到下面4 种
+情况时应该抛出异常：
+1 ) 调用一个抛出受査异常的方法， 例如， FilelnputStream 构造器。
+2 ) 程序运行过程中发现错误， 并且利用throw 语句抛出一个受查异常（下一节将详细地
+介绍throw 语句)。
+3 ) 程序出现错误， 例如，a[-l ]=0 会抛出一个ArraylndexOutOffloundsException 这样的
+非受查异常。
+4 ) Java 虚拟机和运行时库出现的内部错误。
+如果出现前两种情况之一， 则必须告诉调用这个方法的程序员有可能抛出异常
+
+对于那些可能被他人使用的Java 方法， 应该根据异常规范（ exception specification), 在
+方法的首部声明这个方法可能抛出的异常。
+class HyAni(nation
+{
+public Image loadlmage(String s) throws IOException
+{
+}
+}
+如果一个方法有可能抛出多个受查异常类型， 那么就必须在方法的首部列出所有的异常
+类。每个异常类之间用逗号隔开
+
+不需要声明Java 的内部错误， 即从Error 继承的错误。任何程序代码都具有抛出那些
+异常的潜能， 而我们对其没有任何控制能力。
+同样，也不应该声明从RuntimeException 继承的那些非受查异常；
+
+总之，一个方法必须声明所有可能抛出的受查异常， 而非受查异常要么不可控制（ Error),
+要么就应该避免发生（ RuntimeException )。如果方法没有声明所有可能发生的受查异常， 编
+译器就会发出一个错误消息
+
+警告： 如果在子类中覆盖了超类的一个方法， 子类方法中声明的受查异常不能比超类方
+法中声明的异常更通用（也就是说， 子类方法中可以抛出更特定的异常， 或者根本不抛
+出任何异常）。特别需要说明的是， 如果超类方法没有抛出任何受查异常， 子类也不能抛
+出任何受查异常。例如， 如果覆盖JComponent.paintComponent 方法， 由于超类中这个方
+法没有抛出任何异常，所以， 自定义的paintComponent 也不能抛出任何受查异常。
+
+能抛出一个这个类的异常， 或者这个类的任意一个子类的异常
+
+在C++ 中， 如果没有给出throw 说明， 函数可能会抛出任何异常。而在Java
+中， 没有throws 说明符的方法将不能抛出任何受查异常
+
+7.1.3 如何抛出异常
+String readData(Scanner in) throws EOFException
+{
+    throw new EOFException();
+}
+
+7.1.4 创建异常类
+定义一个派生于Exception 的类， 或者派生于Exception 子类的类。例如， 定义一个派生于IOException 的类。
+习惯上， 定义的类应该包含两个构造器， 一个是默认的构造器；另一个是带有详细描述信息
+的构造器（超类Throwable 的toString 方法将会打印出这些详细信息， 这在调试中非常有用)。
+class FileFormatException extends IOException
+{
+public FileFormatExceptionO {}
+public FileFormatException(String gripe)
+{
+  super(gripe);
+}
+}
+
+7 . 2.1 捕获异常
+对于图形界面程序（ applet 和应用
+程序)，
+在捕获异常之后， 也会打印出堆桟的信息， 但程序将返回到用户界面的处理循环中
+(在调试GUI 程序时， 最好保证控制台窗口可见， 并且没有被最小化)。
+
+try{
+   code 
+   more code
+}
+catch (ExceptionType e)
+{
+   handler for this type
+}
+
+通常， 最好的选择是什么也不做，而是将异常传递给调用者，必须声明这个方法可能会拋
+出一个IOException。
+public void read(String filename) throws IOException
+{
+
+}
+通常， 应该捕获那些知道如何处理的异常， 而将那些不知道怎样处理
+的异常继续进行传递。
+如果想传递一个异常， 就必须在方法的首部添加一个throws 说明符， 以便告知调用者这
+个方法可能会抛出异常。
+
+这个规则也有一个例外。前面曾经提到过： 如果编写一个覆盖超类的方法，
+而这个方法又没有抛出异常（如JComponent 中的paintComponent ), 那么这个方法就必须捕
+获方法代码中出现的每一个受查异常。不允许在子类的throws 说明符中出现超过超类方法所
+列出的异常类范围。
+
+7.2.2 捕获多个异常
+异常对象可能包含与异常本身有关的信息。要想获得对象的更多信息， 可以试着使用
+e.getHessage()
+得到详细的错误信息（如果有的话)，
+或者使用
+e.getClass().getName()
+得到异常对象的实际类型。
+
+在Java SE 7 中，同一个catch 子句中可以捕获多个异常类型。
+try
+{
+code that might throw exceptions
+}
+catch (FileNotFoundException | UnknownHostException e)
+{
+emergency action for missing files and unknown hosts
+}
+catch (IOException e)
+{
+emergency action for all other I/O problems
+}
+只有当捕获的异常类型彼此之间不存在子类关系时才需要这个特性
+
+捕获多个异常时， 异常变量隐含为final 变量。例如， 不能在以下子句体中为e 赋
+不同的值：
+catch (FileNotFoundException | UnknownHostException e) { . . . }
+注释： 捕获多个异常不仅会让你的代码看起来更简单， 还会更高效。生成的字节码只包
+'一个对应公共catch 子句的代码块。
+
+7.2.3 再次抛出异常与异常链
+在catch 子句中可以抛出一个异常， 这样做的目的是改变异常的类型
+
+并且将原始异常设置为新异常的“ 原因”
+当捕获到异常时， 就可以使用下面这条语句重新得到原始异常：
+Throwable e = se.getCause() ;
+强烈建议使用这种包装技术。这样可以让用户抛出子系统中的高级异常，而不会丢失原始异
+常的细节。
+try
+{
+   access the database
+}
+catch (SQLException e)
+{}
+  Throwable se = new ServletException ("database error")；
+  se.initCause(e);
+  throw se
+}
+
+有时你可能只想记录一个异常， 再将它重新抛出， 而不做任何改变：
+try
+{
+access the database
+}
+catch (Exception e)
+{
+   logger.logOevel, message, e);
+   throw e;
+}
+
+7.2.4 finally 子句
+InputStream in = . .
+try
+{
+code that might throw exceptions
+}
+catch(IOException e)
+{
+
+}
+finally
+{
+in.dose()；
+}
+
+解搞合try/catch 和try/finally 语句块
+InputStrean in = . . .;
+try
+{
+  try
+  {
+    code that might throw exceptions
+  }
+  finally
+  {
+    in.close();
+  }
+}
+catch (IOException e)
+{
+  show error message
+}
+
+覆盖原始的返回值
+public static int f(int n)
+{
+  try
+  {
+    int r = n * n;
+    return r;
+  }
+  finally
+  {
+    if (n == 2) return 0;
+  }
+}
+
+close 方法本身也有可能抛出IOException 异常。当
+当出现这种情况时， 原始的异常将会丢失，转而抛出close 方
+法的异常。
+InputStream in = . . .;
+Exception ex = null ;
+try{
+  try{
+    code that might throw exceptions
+  }
+  catch (Exception e)
+  {
+    ex=e 
+    throw e;
+  }
+}
+finally
+{
+  try
+  {
+    in.dose()；
+  }
+  catch (Exception e){
+    if (ex = null) throw e;
+  }
+}
+
+
+7.2.5 带资源的try 语句
+假设资源属于一个实现了AutoCloseable 接口的类,
+AutoCloseable 接口有一个方法：
+void close() throws Exception
+
+带资源的try 语句（try-with-resources ) 的最简形式为：
+try (Resource res = . . .)
+{
+   work with res
+}
+try 块退出时，会自动调用res.close()
+
+如果try 块抛出一个异常， 而且close 方法也抛出一个异常，原来的异常会重新抛出，而close
+方法抛出的异常会“ 被抑制”， 这些异常将自动捕获，并由addSuppressed 方法增加到原来的
+异常
+
+7.2.6 分析堆栈轨迹元素
+//一系列api接口
+
+7.3 使用异常机制的技巧
+与执行简单的测试相比， 捕获异常所花费的时间大大超过了前者， 因此使用
+异常的基本规则是： 只在异常情况下使用异常机制。
+
+2. 不要过分地细化异常
+3. 利用异常层次结构
+4. 不要压制异常
+5. 在检测错误时，“ 苛刻” 要比放任更好
+6.传递异常要比捕获这些异常更好
+
+7.4 使用断言
+断言机制允许在测试期间向代码中插入一些检査语句。当代码发布时，这些插人的检测
+语句将会被自动地移走。
+assert 条件；
+assert 条件：表达式；
+这两种形式都会对条件进行检测， 如果结果为false, 则抛出一个AssertionError 异常。
+在第二种形式中，表达式将被传人AssertionError 的构造器， 并转换成一个消息字符串。
+
+表达式” 部分的唯一目的是产生一个消息字符串。AssertionError 对象并不存储
+表达式的值， 因此， 不可能在以后得到它
+
+要想断言?c 是一个非负数值， 只需要简单地使用下面这条语句
+assert x >= 0;
+或者将x 的实际值传递给AssertionError 对象， 从而可以在后面显示出来。
+assert x >= 0 : x;
+
+C 语言中的assert 宏将断言中的条件转换成一个字符串。当断言失败时，
+这个字符串将会被打印出来Q 例如， 若assert(x>=0) 失败， 那么将打印出失败条件
+“ x>=0”。在Java 中， 条件并不会自动地成为错误报告中的一部分。如果希望看到这个
+条件， 就必须将它以字符串的形式传递给AssertionError 对象：assert x >= 0 :“ x >= 0” u
+
+7.4.2 启用和禁用断言
+在默认情况下， 断言被禁用。可以在运行程序时用-enableassertions 或-ea 选项启用：
+java -enableassertions MyApp
+
+需要注意的是， 在启用或禁用断言时不必重新编译程序。启用或禁用断言是类加载器
+( class loader ) 的功能。当断言被禁用时， 类加载器将跳过断言代码， 因此，不会降低程序运
+行的速度。
+也可以在某个类或整个包中使用断
+java -ea:MyClass -eaiconi .inycompany.inylib. . , MyApp
+这条命令将开启MyClass 类以及在com.mycompany.mylib 包和它的子包中的所有类的断
+言
+
+选项-ea 将开启默认包中的所有类的断言。
+
+也可以用选项-disableassertions 或-da 禁用某个特定类和包的断言：
+java -ea: ... -da:MyClass MyApp
+有些类不是由类加载器加载， 而是直接由虚拟机加载。可以使用这些开关有选择地启用
+或禁用那些类中的断言。
+
+启用和禁用所有断言的-ea 和-da 开关不能应用到那些没有类加载器的“ 系统类”
+上。对于这些系统类来说， 需要使用-enablesystemassertions/-esa 开关启用断言
+
+7.4.3 使用断言完成参数检查
+在Java 语言中， 给出了3 种处理系统错误的机制：
+•抛出一个异常
+•日志
+•使用断言
+
+•断言失败是致命的、不可恢复的错误。
+•断言检查只用于开发和测阶段
+
+7.4.4 为文档假设使用断言
+
+//乌七八糟
+7.5 记录曰志
+7.5.1 基本日志
+使用全局日志记录器（global logger) 并调用其info 方法,
+Logger.getClobal 0,info("File->Open menu item selected");
+
+如果在适当的地方（如main 开始）调用
+Logger.getClobal () .setLevel (Level .OFF) ;
+将会取消所有的日志。
+
+7.5.2 高级日志
+在一
+个专业的应用程序中，不要将所有的日志都记录到一个全局日志记录器中，而是可以自定义
+日志记录器。
+可以调用getLogger 方法创建或获取记录器：
+private static final Logger myLogger = Logger.getLogger("com.mycompany.myapp") :
+提示：未被任何变量引用的日志记录器可能会被垃圾回收。为了防止这种情况发生，要
+像上面的例子中一样， 用一个静态变量存储日志记录器的一个引用。
+
+与包名类似， 日志记录器名也具有层次结构
+日志记录器的父与子之间将共享某些属性。
+
+通常， 有以下7 个日志记录器级别：
+• SEVERE
+• WARNING
+• INFO
+• CONFIG
+• FINE
+• FINER
+• FINEST
+在默认情况下， 只记录前三个级别
+
+使用Level.ALL 开启所有级别的记录， 或者使用Level.OFF 关闭所有级别
+的记录
+
+默认的日志配置记录了INFO 或更高级别的所有记录，
+如果将记录级别设计为INFO 或者更低， 则需要修改日志处理器的配置
+
+默认的日志记录将显示包含日志调用的类名和方法名， 如同堆栈所显示的那样。但是,
+如果虚拟机对执行过程进行了优化，就得不到准确的调用信息。此时，可以调用logp 方法获
+得调用类和方法的确切位置，
+void logp(Level 1, String className, String methodName, String message)
+
+使用下面两个方法提供日志记录
+中包含的异常描述内容。
+void throwing(St ring className, String methodName , Throwable t)
+void log(Level 1 , String message, Throwable t)
+
+7.5.3 修改日志管理器配置
+可以通过编辑配置文件来修改日志系统的各种属性。在默认情况下， 配置文件存在于：
+j re/lib/1ogging.properties
+要想使用另一个配置文件， 就要将java.utiUogging.config.file 特性设置为配置文件的存
+储位置， 并用下列命令启动应用程序
+java -Djava.util.logging.config.file=configFile MainClass
+
+日志管理器在VM 启动过程中初始化， 这在main 执行之前完成。如果在main
+中调用System.setProperty("java.util_logging.config_file"，file), 也会调用LogManager.
+readConfiguration() 来重新初始化日志管理器
+
+要想修改默认的日志记录级别， 就需要编辑配置文件，并修改以下命令行
+.level=INFO
+可以通过添加以下内容来指定自己的日志记录级别
+com.mycompany.myapp.level=FINE
+
+要想在控制台上看到FINE 级别的消息， 就需要进行下列设置
+java.util.logging.ConsoleHandler.level=FINE
+
+//没看
+7 . 6 调试技巧
+

@@ -1,0 +1,155 @@
+第 8 章 泛型程序设计
+
+8.1 为什么要使用泛型程序设计
+8.1.1 类型参数的好处
+使得程序具有更好的可读性和安全性，
+不需要进行强制类型转换
+
+8.2 定义简单泛型类
+{
+  private T first;
+  private T second;
+  public Pair() { first = null ; second = null ; }
+  public PairfT first , T second) { this,first = first; this.second = second; }
+  public T getFirstO { return first; }
+  public T getSecondO { return second; }
+  public void setFirst (T newValue) { first = newValue; }
+  public void setSecond(T newValue) { second = newValue; }
+}
+
+8 . 3 泛型方法
+class ArrayAlg
+{
+  public static <T> T getMiddle(T... a)
+  {
+   return a[a.length / 2];
+  }
+}
+类型变量放在修饰符（这里是public static ) 的后面，返回类型的前面。
+泛型方法可以定义在普通类中，也可以定义在泛型类中。
+当调用一个泛型方法时在方法名前的尖括号中放入具体的类型：
+String middle = ArrayAlg.<String>getMiddle("]ohnM", "Q.n", "Public");
+在这种情况（实际也是大多数情况）下，方法调用中可以省略<String> 类型参数。编译
+器有足够的信息能够推断出所调用的方法
+String middle = ArrayAlg.getHiddle("]ohn", "Q.", "Public");
+
+如果想知道编译器对一个泛型方法调用最终推断出哪种类型， PetervonderAM 推
+荐了这样一个窍门： 有目的地引入一个错误， 并研究所产生的错误消息。
+
+8.4 类型变量的限定
+class ArrayAIg
+{
+  public static <T> T iin(T[] a) // almost correct
+  {
+    if (a null || a.length = 0) return null ;
+    T smallest = a[0] ;
+    for (int i = 1; i < a.length; i ++)
+    if (smallest.compareTo(a[i ]) > 0) smallest = a[i ] ;
+      return smallest;
+  }
+}
+变量smallest 类型为T, 这意味着它可以是任何一个类的对象。怎么才能确信T 所属的类有compareTo 方法呢？
+解决这个问题的方案是将T限制为实现了Comparable 接口（只含一个方法compareTo 的
+标准接口）的类。可以通过对类型变量T 设置限定（bound) 实现这一点：
+public static <T extends Comparab1e> T a)
+
+<T extends BoundingType〉
+表示T 应该是绑定类型的子类型（subtype)。T 和绑定类型可以是类， 也可以是接口。选
+择关键字extends 的原因是更接近子类的概念
+
+一个类型变量或通配符可以有多个限定， 例如：
+T extends Comparable & Serializable
+限定类型用“ &” 分隔，而逗号用来分隔类型变量。在Java 的继承中， 可以根据需要拥有
+多个接口超类型， 但限定中至多有一个类。如果用一个类作为限定，它必须是限定列表中的第一个。
+
+8.5 泛型代码和虚拟机
+8 . 5.1 类型擦除
+虚拟机没有泛型类型对象—所有对象都属于普通类
+public class Interval <T extends Comparable & Serializable〉implements Serializable
+{
+  private T lower;
+  private T upper;
+}
+//替换后
+public class Interval implements Serializable
+{
+  private Comparable lower;
+  private Coiparable upper;
+}
+无论何时定义一个泛型类型， 都自动提供了一个相应的原始类型（ raw type )。原始类型
+的名字就是删去类型参数后的泛型类型名。擦除（ erased) 类型变M, 并替换为限定类型（无
+限定的变量用Object)。
+原始类型用第一个限定类型来替换， 如果没有给定限定就用Object替换
+为了提高效率， 应该将标签（ tagging) 接口（即没有方法的接口）放在限定列表的末尾。
+
+8.5.2 翻译泛型表达式
+当程序调用泛型方法时， 如果擦除返回类型， 编译器插入强制类型转换。
+
+//all 
+8 . 5.3 翻译泛型方法 
+桥方法被合成来保持多态
+
+//迷糊
+8.6 约束与局限性
+8.6.1 不能用基本类型实例化类型参数
+
+没有Pair<double>, 只有Pair<Double>。当然,
+其原因是类型擦除。擦除之后， Pair 类含有Object 类型的域， 而Object 不能存储double值
+
+8.6.2 运行时类型查询只适用于原始类型
+if (a instanceof Pair<T>) // Error
+或强制类型转换：
+Pair<String> p = (Pair<String>) a; // Warning-can only test that a is a Pair
+
+试图查询一个对象是否属于某个泛型类型时， 倘若使用instanceof 会
+得到一个编译器错误， 如果使用强制类型转换会得到一个警告。
+ getClass 方法总是返回原始类型
+
+8.6.3 不能创建参数化类型的数组
+//all
+
+8.6.4 Varargs 警告
+public static <T> void addAll(Collections coll, T... ts)
+{
+  for (t : ts) coll.add⑴；
+}
+实际上参数ts 是一个数组， 包含提供的所有实参。
+为了调用这个方法，Java 虚拟机必须建立一个Pair<String> 数组，
+得到一个警告，而不是错误,
+
+一种方法是为包含addAll 调用的方法增加注解@
+SuppressWamings("unchecked")。 或者在Java SE 7 中， 还可以用@SafeVarargs 直接标注
+addAll 方法：
+
+//???
+8.6.5 不能实例化类型变量 
+
+//???
+8.6.6 不能构造泛型数组
+
+8.6.7 泛型类的静态上下文中类型变量无效
+{
+private static T singlelnstance; // Error
+public static T getSinglelnstanceO // Error
+{
+if (singleinstance == null) construct new instance of T
+return singlelnstance;
+}
+}
+类型擦除
+之后， 只剩下Singleton 类， 它只包含一个singlelnstance 域。因此， 禁止使用带有类型变量
+的静态域和方法
+
+8.6.8 不能抛出或捕获泛型类的实例
+既不能抛出也不能捕获泛型类对象。实际上， 甚至泛型类扩展Throwable 都是不合法的
+,catch 子句中不能使用类型变量。
+
+在异常规范中使用类型变量是允许的
+public static <T extends Throwable〉void doWork(T t) throws T // OK
+
+8 . 6.9 可以消除对受查异常的检查
+
+8.7 泛型类型的继承规则
+//???
+如果试图将一个低级别的雇员存储到employeeBuddies[0]，
+虚拟机将会抛出ArrayStoreException 异常。

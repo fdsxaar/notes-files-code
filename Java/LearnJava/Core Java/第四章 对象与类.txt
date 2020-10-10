@@ -1,0 +1,308 @@
+如果需要返回一个可变对象的引用， 应该首先对它进行克隆（ clone )。对象clone 是
+指存放在另一个位置上的对象副本
+class Employee
+{
+   public Date getHireDay(){
+        return (Date) hireDay.clone();
+   }
+}
+
+4.3.9 final 实例域
+可以将实例域定义为final。构建对象时必须初始化这样的域。也就是说， 必须确保在每
+一个构造器执行之后， 这个域的值被设置， 并且在后面的操作中， 不能够再对它进行修改。
+class Employee
+{
+    private final String name;
+}
+
+对于可变的类， 使用final 修饰符可能会对读者造成混乱。例如，
+private final StringBuiIcier evaluations;
+在Employee 构造器中会初始化为
+evaluations = new StringBuilder();
+final 关键字只是表示存储在evaluations 变量中的对象引用不会再指示其他StringBuilder
+对象。不过这个对象可以更改：
+public void giveGoldStarO
+{
+    evaluations.append(LocalDate.now() + ": Gold star!\n");
+}
+
+4.4 静态域与静态方法
+4 . 4.1 静态域
+如果将域定义为static, 每个类中只有一个这样的域。而每一个对象对于所有的实例域
+却都有自己的一份拷贝。
+class Employee
+{
+    private static int nextld = 1;
+    private int id;
+}
+它属于类，而不属于任何独立的对象。
+
+4.4.2 静态常量
+public class Hath
+{
+   public static final double PI = 3.14159265358979323846;
+}
+本地方法可以绕过Java语言的存取控制机制。这是一种特殊的方法， 在自己编写程序时， 不应该这样处理。
+
+4.4.3 静态方法
+
+4.4.5 main 方法
+提示： 每一个类可以有一个main 方法
+
+如果Employee 类是一个更大型应用程序的一部分， 就可以使用下面这条语句运行程序
+java Application
+Employee 类的main 方法永远不会执行
+
+4.5 方法参数
+Java 程序设计语言总是采用按值调用。也就是说， 方法得到的是所有参数值的一个拷
+贝，特别是，方法不能修改传递给它的任何参数变量的内容;
+
+然而， 方法参数共有两种类型：
+•基本数据类型（数字、布尔值K
+•对象引用。
+
+public static void tri pi eSal ary(Employee x) // works
+{
+   x.raiseSa1ary(200) ;
+}
+当调用
+harry = new Employee(. . .) ;
+tri pi eSal ary(harry) ;
+时，具体的执行过程为：
+1 ) X 被初始化为harry 值的拷贝，这里是一个对象的引用。//值是对象的应用，可以理解为指针
+
+4 . 6 对象构造
+4.6.1 重载
+注释：Java 允许重载任何方法， 而不只是构造器方法。
+返回类型不是方法签名的一部分；
+
+4.6.2 默认域初始化
+如果在构造器中没有显式地给域赋予初值， 那么就会被自动地赋为默认值： 数值为0、
+布尔值为false、对象引用为null。
+
+注释： 这是域与局部变量的主要不同点。必须明确地初始化方法中的局部变量。但是，
+如果没有初始化类中的域， 将会被自动初始化为默认值（ 0、false 或null )。
+
+如果在编写一个类时没有编写构造器， 那么系统就会提供一个无参数构造器。这个构造
+器将所有的实例域设置为默认值;
+
+如果类中提供了至少一个构造器， 但是没有提供无参数的构造器， 则在构造对象时如果
+没有提供参数就会被视为不合法;
+
+4.6.4 显式域初始化
+可以在类定义中， 直接将一个值赋给任何域。例如：
+class Employee{
+    private String name = ""
+}
+在执行构造器之前，先执行赋值操作。当一个类的所有构造器都希望把相同的值赋予某
+个特定的实例域时，这种方式特别有用。
+
+初始值不一定是常量值， 可以调用方法对域进行初始化：
+class Employee
+{
+    private static int nextld;
+    private int id = assignld()；
+    private static int assignld(){}
+   {
+        int r = nextld;
+        nextld++;
+        return r;
+   }
+}
+
+4 . 6.5 参数名
+参数变量用同样的名字将实例域屏蔽起来
+public Employee(String naie, double salary)
+{
+    this.name = name;
+    this,salary = salary;
+}
+
+4.6.6 调用另一个构造器
+如果构造器的第一个语句形如this(...)， 这个构造器将调用同一个类的另一个构造器
+public Employee(double s)
+{
+    // calls Employee(St ring, double)
+    this("Employee #" + nextld, s);
+    nextld++;
+}
+
+4.6.7 初始化块
+在一个类的声明中，可以包含多个代码块。只要构造类的对象，这些块就会被执行；
+class C{
+    private static int id 
+    private static int nextid
+    {
+        id = nextid
+        nextid++
+    }
+}
+id 域都在对象初始化块中被初始化。首先运行初始化块，然后才运行构造器的主体部分。
+
+即使在类的后面定义， 仍然可以在初始化块中设置域。
+建议将初始化块放在域定义之后;
+
+调用构造器的具体处理步骤：
+1 ) 所有数据域被初始化为默认值（0、false 或null)。
+2 ) 按照在类声明中出现的次序， 依次执行所有域初始化语句和初始化块。
+3 ) 如果构造器第一行调用了第二个构造器， 则执行第二个构造器主体
+4 ) 执行这个构造器的主体.
+
+可以通过提供一个初始化值， 或者使用一个静态的初始化块来对静态域进行初始化:
+private static int nextld = 1;
+或
+将代码放在一个块中，并标记关键字static
+// static initialization block
+static
+{
+    Random generator = new Random0；
+    nextld = generator.nextlnt(lOOOO) ;
+}
+
+4.6.8 对象析构与finalize 方法
+在这种情况下， 当资源不再需要时， 将其回收和再利用将显得十分重要。
+可以为任何一个类添加finalize 方法。finalize 方法将在垃圾回收器清除对象之前调用。
+在实际应用中，不要依赖于使用finalize 方法回收任何短缺的资源， 这是因为很难知道这个
+方法什么时候才能够调用
+
+如果某个资源需要在使用完毕后立刻被关闭， 那么就需要由人工来管理。对象用完时，
+可以应用一个close 方法来完成相应的清理操作
+
+4 . 7 包
+所有标准的Java 包都处于java 和javax 包层次中。使用包的主要原因是确保类名的唯一性；
+
+4.7.1 类的导入
+一个类可以使用所属包中的所有类， 以及其他包中的公有类（ public class)；
+可以使用import 语句导人一个特定的类或者整个包；
+。import 语句应该位于源文件的顶部
+( 但位于package 语句的后面)，
+可以使用下面这条语句导人java.util 包中所有的类。
+import java.util .*;
+
+导人一个包中的特定类：
+import java.time.LocalDate;
+
+只能使用星号（*) 导入一个包， 而不能使用import java.* 或
+import java.*.* 导入以java 为前缀的所有包。
+
+java.util 和java.sql 包都有日期（ Date) 类。如果在程
+序中导入了这两个包：
+import java.util .*;
+import java.sql .*;
+在程序使用Date 类的时候， 就会出现一个编译错误：
+Date today; // Error java.util .Date or java.sql .Date?
+此时编译器无法确定程序使用的是哪一个Date 类。可以采用增加一个特定的import 语句来
+解决这个问题：
+import java.util .*;
+import java.sql .*;
+import java.util .Date;
+如果这两个Date 类都需要使用， 又该怎么办呢？ 答案是，在每个类名的前面加上完整的
+包名。
+java.util .Date deadline = new java.util .Date() ;
+java.sql .Date today = new java.sql .Date(...) ;
+
+在C++ 中， 必须使用include 将外部特性的声明加栽进来， 这是因为C++ 编译器
+无法查看任何文件的内部， 除了正在编译的文件以及在头文件中明确包含的文件。Java
+编译器可以查看其他文件的内部， 只要告诉它到哪里去查看就可以了」
+在Java 中， 通过显式地给出包名， 如java.util.Date， 就可以不使用import ; 而在
+C++ 中， 无法避免使用include 指令。
+在C-H■ 中， 与包机制类似的是命名空间（namespace)。在Java 中， package 与
+import 语句类似于C++ 中的namespace 和using 指令。
+
+4 . 7.2 静态导入
+import 语句不仅可以导入类，还增加了导入静态方法和静态域的功能。
+例如，如果在源文件的顶部， 添加一条指令：
+import static java.lang.System.*;
+就可以使用System 类的静态方法和静态域，而不必加类名前缀：
+out.println("Goodbye, World!"); // i.e., System.out
+exit⑼; //i.e., System.exit
+另外，还可以导入特定的方法或域：
+import static java.lang.System.out;
+
+4 . 7.3 将类放入包中
+要想将一个类放人包中， 就必须将包的名字放在源文件的开头， 包中定义类的代码之
+前。例如，程序清单4-7 中的文件Employee.java 开头是这样的：
+package com.horstiann.corejava;
+public class Employee
+{
+
+}
+如果没有在源文件中放置package 语句， 这个源文件中的类就被放置在一个默认包
+( defaulf package ) 中。默认包是一个没有名字的包。在此之前， 我们定义的所有类都在默认
+包中。
+将包中的文件放到与完整的包名匹配的子目录中,编译器将类文件也放在相同的目录结构中 
+
+编译器就会自动地查找文件com/horstmann/corejava/Employee.java 并进行编译。p143?
+
+在这种情况下，仍然要从基目录编译和运行类，即包含com 目录： p143目录图
+javac com/myconipany/ Payrol1App.java
+java com.mycompany.PayrollApp
+需要注意，编译器对文件（带有文件分隔符和扩展名.java 的文件）进行操作。而Java 解
+释器加载类（带有. 分隔符)。
+
+???
+编译器在编译源文件的时候不检查目录结构。例如， 假定有一个源文件开头有下
+列语句：
+package com.myconpany;
+即使这个源文件没有在子目录com/mycompany 下， 也可以进行编译。如果它不依赖
+于其他包， 就不会出现编译错误。但是， 最终的程序将无法运行， 除非先将所有类文件
+移到正确的位置上。如果包与目录不匹配，虚拟机就找不到类」
+
+4.7.4 包作用域
+如果没有指定public 或private, 这个部分（类、方法或变量）可以被同一个包中的所有方法访问。
+
+可以通过包密封( package sealing) 机制来解决将
+各种包混杂在一起的问题。如果将一个包密封起来， 就
+不能再向这个包添加类了。在第9 章中，将介绍制作包
+含密封包的JAR 文件的方法。
+
+4 . 8 类路径
+类文件也可以存储在JAR(Java 归档）文件中。在一个JAR 文件中， 可以包含
+多个压缩形式的类文件和子目录
+
+为了使类能够被多个程序共享，需要做到下面几点：p137
+虚拟机与编译器，两种查找方式
+
+4.8.1 设置类路径
+最好采用-classpath ( 或-cp) 选项指定类路径：
+java -classpath /home/user/dassdir: .:/home/user/archives/archive.jar HyProg
+或者
+java -classpath c:\classdir; .;c:\archives\archive.jar MyProg
+整个指令应该书写在一行中。将这样一个长的命令行放在一个shell 脚本或一个批处理文
+件中是；
+
+通过设置CLASSPATH 环境变量完成这个操作。
+export CLASSPATH=/home/user/classdir: .: / home/user/archives/archive.jar
+在Windows shell , 命令格式如下：
+set CLASSPATH=c:\classdir; .;c:\archives\archive.jar
+直到退出shell 为止，类路径设置均有效。
+
+4.9 文档注释  p149,
+4.9.1 注释的插入
+如果在源代码中添加以专用的定界符/** 开始的注释， 那么可以很容易地生成一个看上
+去具有专业水准的文档；
+javadoc 实用程序（utility ) 从下面几个特性中抽取信息：
+•包
+•公有类与接口
+•公有的和受保护的构造器及方法
+•公有的和受保护的域
+
+注释以/** 开始， 并以*/ 结束,
+
+4. 1 0 类设计技巧
+1. 一定要保证数据私有'
+2. 一定要对数据初始化
+Java 不对局部变量进行初始化， 但是会对对象的实例域进行初始化
+3. 不要在类中使用过多的基本类型
+4. 不是所有的域都需要独立的域访问器和域更改器
+5. 将职责过多的类进行分解
+6. 类名和方法名要能够体现它们的职责
+命名类名的良好习惯是采用一个名词（ Order )、前面有形容词修饰的名词（ RushOrder)
+或动名词（有“ -ing” 后缀）修饰名词（例如， BillingAddress )。对于方法来说，习惯是访问
+器方法用小写get 开头( getSalary ), 更改器方法用小写的set 开头（setSalary )
+7. 优先使用不可变的类
+LocalDate 类以及java.time 包中的其他类是不可变的—没有方法能修改对象的状态。
+类似plusDays 的方法并不是更改对象，而是返回状态已修改的新对象。
+更改对象的问题在于， 如果多个线程试图同时更新一个对象， 就会发生并发更改。其结
+果是不可预料的。如果类是不可变的，就可以安全地在多个线程间共享其对象
+

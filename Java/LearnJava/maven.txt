@@ -1,0 +1,156 @@
+maven 
+
+Maven 工程结构和内容被定义在一个 xml 文件中 － pom.xml，
+是 Project Object Model (POM) 的简称，此文件是整个 Maven 系统的基础组件
+
+约定优于配置
+Maven 使用约定而不是配置，意味着开发者不需要再自己创建构建过程。
+
+开发者不需要再关心每一个配置细节。Maven 为工程提供了合理的默认行为。
+当创建 Maven 工程时，Maven 会创建默认的工程结构。开发者只需要合理的
+放置文件，而在 pom.xml 中不再需要定义任何配置。
+
+为了构建工程，Maven 为开发者提供了选项来配置生命周期目标和工程依赖
+（依赖于 Maven 的插件扩展功能和默认的约定）。大部分的工程管理和构建相关的任务是由 Maven 插件完成的。
+
+在创建 POM 之前，我们首先确定工程组（groupId），及其名称（artifactId）和版本，在仓库中这些属性是工程的唯一标识
+
+需要说明的是每个工程应该只有一个 POM 文件。
+
+所有的 POM 文件需要 project 元素和三个必须的字段：groupId, artifactId,version。
+groupId:工程组的标识
+artifactId：工程的标识
+version：工程的版本号
+在仓库中的工程标识为 groupId:artifactId:version
+POM.xml 的根元素是 project，它有三个主要的子节点
+
+所有的 POM 都继承自一个父 POM（无论是否显式定义了这个父 POM）。父 POM 也被称作 Super POM，它包含了一些可以被继承的默认设置。
+
+Maven 使用 effective pom（Super pom 加上工程自己的配置）来执行相关的目标，它帮助开发者在 pom.xml 中做尽可能少的配置，当然这
+些配置可以被方便的重写。
+
+查看 Super POM 默认配置的一个简单方法是执行以下命令：mvn help:effective-pom
+
+当需要在某个特定阶段之前或之后执行目标时，可以使用 pre 和 post 来定义这个目标。
+
+当 Maven 开始构建工程，会按照所定义的阶段序列的顺序执行每个阶段注册的目标。Maven 有以下三个标准的生命周期：
+clean
+default(or build)
+site
+目标表示一个特定的、对构建和管理工程有帮助的任务。它可能绑定了 0 个或多个构建阶段
+
+Clean 生命周期
+当我们执行 mvn post-clean 命令时，Maven 调用 clean 生命周期，它包含以下阶段。
+pre-clean
+clean
+post-clean
+(Maven 的 clean 目标（clean:clean）绑定到了 clean 生命周期的 clean 阶段。它的 clean:clean 目标通过删除构建目录删除了构建
+输出。所以当 mvn clean 命令执行时，Maven 删除了构建目录)
+
+Site 生命周期
+Maven Site 插件一般用来创建新的报告文档、部署站点等。
+
+阶段：
+
+pre-site
+site
+post-site
+site-deploy
+在下面的例子中，我们将 maven-antrun-plugin:run 目标添加到 Site 生命周期的所有阶段中。这样我们可以显示生命周期的所有文本信息
+
+五. Apache Maven 构建配置文件
+构建配置文件是一组配置的集合，用来设置或者覆盖 Maven 构建的默认配置。使用构建配置文件，可以为不同的环境定制构建过程，
+例如 Producation 和 Development 环境。
+
+Profile 在 pom.xml 中使用 activeProfiles / profiles 元素指定，并且可以用很多方式触发。Profile 在构建时修改 POM，
+并且为变量设置不同的目标环境（例如，在开发、测试和产品环境中的数据库服务器路径）
+
+六 仓库
+Maven 本地仓库默认被创建在 %USER_HOME% 目录下。要修改默认位置，在 %USER_HOME%\conf 目录中的 Maven 的 settings.xml 
+文件中定义另一个路径
+settings.xml中说
+The path to the local repository maven will use to store artifacts.
+   |
+   | Default: ${user.home}/.m2/repository
+
+Maven 中央仓库是由 Maven 社区提供的仓库
+
+远程仓库
+如果 Maven 在中央仓库中也找不到依赖的库文件，它会停止构建过程并输出错误信息到控制台。为避免这种情况，Maven 提供了远程仓库的概念，
+它是开发人员自己定制仓库，包含了所需要的代码库或者其他工程中用到的 jar 文件
+
+七 创建Java工程
+Maven 使用原型（archetype）插件创建工程。要创建一个简单的 Java 应用，我们将使用 maven-archetype-quickstart 插件
+C:\MVN>mvn archetype:generate
+-DgroupId=com.companyname.bank 
+-DartifactId=consumerBanking 
+-DarchetypeArtifactId=maven-archetype-quickstart 
+-DinteractiveMode=false
+
+Maven 使用称作 Doxia 的文件处理引擎创建文档，它将多个源格式的文件转换为一个共通的文档模型
+
+Maven 通过使用可传递的依赖机制来管理依赖
+
+八 自动化部署
+Maven - 自动化部署
+一般情况下，在一个工程开发进程里，一次部署的过程包含需如下步骤：
+
+合入每个子工程下的代码到 SVN 或者源代码库，并标记它。
+从 SVN 下载完整的源代码。
+构建应用程序。
+保存构建结果为 WAR 或者 EAR 类型文件并存放到一个共同的指定的网络位置上。
+从网络上获得该文件并且部署该文件到产品线上。
+更新文档日期和应用程序的版本号。
+
+=====================================================
+|| https://kentyeh.github.io/mavenStartup/index.html ||
+=====================================================
+1.Scope的值說明如下：
+
+compile	Scope不填時的預設值，表示Project程式須要這個Library才能運作，所以會一併被打包
+provided	表示編譯會用到，但是系統在需要的時候會提供，打包Project不要含進去，例如J2ee的Library，像是servlet-api，
+就是由App Server提供
+runtime	表示編譯時用不到，只有執行時會用到，所以發佈程式時須要一併打包，如GWT 的 gwt-servlet.jar
+test	只有在單元測試時會用到，發佈程式時並不會用到，所以不會被打包
+system	與provided相似，但是固定存在系統檔案,須以 systemPath 指定路徑
+
+2.添加第三方库
+<repositories>
+    <repository><!--J2ee 最新的函式庫在此-->
+        <id>java.net2</id>
+        <name>Repository hosting the jee6 artifacts</name>
+        <url>http://download.java.net/maven/2</url>
+    </repository>
+</repositories>
+
+3.Maven 实际上是一个依赖插件执行的框架，每个任务实际上是由插件完成
+
+4.定義一個變數
+<org.springframework.version>4.2.0.RELEASE</org.springframework.version>
+引用
+<version>${org.springframework.version}</version>
+以後當版本變更的時候，只要修改<properties>下的<org.springframework.version>4.2.0.RELEASE</org.springframework.version>，
+就可以引用新的版本
+
+5.build內可放一個finalName，一般來說打包的最後檔名為artifactId-version.war(jar,ear)，一般來說，web檔deploy時總希望固定一個名字，
+使用finalName與一些變數就可以將打包檔的名稱固定住
+<finalName>${project.artifact}.war</finalName>
+
+6.預設變數的列表
+
+${basedir}	表示包含pom.xml的目錄路徑
+${version}	等同${project.version}或${pom.version}，即程式的版本編號(maven通常建議不要直接使用${version})
+${project.build.directory}	就是target目錄，等同${pom.project.build.directory}
+${project.build.outputDirectory}	就是target/classes目錄
+${project.name} 或 ${pom.name}	就是pom.xml '<name'>所指定的名稱
+${project.build.finalName}	Project的打包名稱
+${env.M2_HOME}	maven安裝目錄
+${java.home}	Java安裝目錄
+${java的系統變數}	與其它JVM所定義的變數
+
+7.阶段
+goal可是設定屬於某個phase，而phase則可組成lifecycle(生命週期)，在Maven有三個LifeCycle?，
+分別是 clean 、 default 與 site ， clean周期負責Project的清理，default周期負責Project的建置
+而site周期則是負責產生Project的文檔。 例如執行 "mvn package" 時，因為它是屬於 defulat
+ 這個life cycle，所以從 phase validate 到 package 的所有相關的Goals都會被執行
+

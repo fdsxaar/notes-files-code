@@ -1,0 +1,56 @@
+p34 警告：// \u00A0
+
+char 字符串长度，码点，代码单元 
+
+f 定点浮点
+g 通用浮点
+a 十六进制浮点数0xl.fccdp3
+
+double (*balances) [6] = new double[10] [6] ; // C++
+
+UTC GMT 
+
+4.4.4 p115
+为什么NumberFormat 类不利用构造器完成这些操作呢？
+
+4.5按值传递
+
+p125 注释
+
+p369 TreeSet(Comparator<? super E> comparator)
+
+p379
+
+p381 枚举
+p384 
+
+p391 
+
+《Java编程思想》
+p348 static  
+import static net.mindview.util
+
+p541 
+p574 BufferedlnputFile.read(
+
+p575 
+
+反射
+
+p695
+
+printnb
+
+volatile
+
+p719 pair.this 
+
+p724 匿名类？
+
+p726 yield 
+
+p730 
+
+p731
+
+p756 %1$ -3d

@@ -1,0 +1,8 @@
+#lang sicp
+(define (abs x)
+  (if (< x 0)
+      (- x)
+      x))
+;如果对应的<p> 确定
+;为真• <e> 中的表达式就会顺序地求值，并将其中最后一个表达式的值作为整个cond 的值返回.而在if 表达
+;式里• <consequen t> 和<alternative> 都只能是单个表达式.

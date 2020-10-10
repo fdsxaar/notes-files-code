@@ -1,0 +1,167 @@
+第15 章 呈现数据
+
+每个进程一次最多可以有九个文件描述符
+
+STDIN文件描述符代表shell的标准输入。对终端界面来说，标准输入是键盘
+
+STDOUT文件描述符代表shell的标准输出。在终端界面上，标准输出就是终端显示器
+
+STDERR文件描述符被设成2。可以选择只重定向错误消息，将该文
+件描述符值放在重定向符号前。该值必须紧紧地放在重定向符号前，否则不会工作。
+ls -al file 2> errlog
+
+如果想重定向错误和正常输出，必须用两个重定向符号。需要在符号前面放上待重定向数据
+所对应的文件描述符，然后指向用于保存数据的输出文件。
+$ ls -al test test2 test3 badtest 2> test6 1> test7
+
+另外，如果愿意，也可以将STDERR和STDOUT的输出重定向到同一个输出文件。为此bash shell
+提供了特殊的重定向符号&>。
+$ ls -al test test2 test3 badtest &> test7
+
+15.2.1 临时重定向
+如果有意在脚本中生成错误消息，可以将单独的一行输出重定向到STDERR。你所需要做的
+是使用输出重定向符来将输出信息重定向到STDERR文件描述符。在重定向到文件描述符时，你
+必须在文件描述符数字之前加一个&：
+echo "This is an error message" >&2
+这行会在脚本的STDERR文件描述符所指向的位置显示文本，而不是通常的STDOUT;
+
+默认情况下，Linux会将STDERR导向STDOUT。但是，如果你在运行脚本时重定向了
+STDERR，脚本中所有导向STDERR的文本都会被重定向。
+
+15.2.2 永久重定向
+用exec命令告诉shell在脚本执行期间重定向某个
+# redirecting all output to a file
+exec 1>testout
+exec命令会启动一个新shell并将STDOUT文件描述符重定向到文件
+
+exec命令允许你将STDIN重定向到Linux系统上的文件中：
+exec 0< testfile
+while read line
+do 
+#
+done
+这是在脚本中从待处理的文件中读取数据的绝妙办法。Linux系统管理员的一项日常任务就
+是从日志文件中读取数据并处理。这是完成该任务最简单的办法。
+
+15.4 创建自己的重定向
+exec 3>test13out
+echo "and this should be stored in the file" >&3
+也可以不用创建新文件，而是使用exec命令来将输出追加到现有文件中。
+exec 3>>test13out
+
+恢复已重定向的文件描述符
+exec 3>&1
+exec 1>test14out
+echo "xxx"
+exec 1>&3
+
+15.4.3 创建输入文件描述符
+在重定向到文件之前，先将STDIN文件描述符保存到另外一个文件描述符，然后在读取完文件之后再将STDIN恢复到它
+原来的位置。
+exec 6<&0
+exec 0< testfile
+while read line
+do
+#xxx
+done
+exec 0<&6
+
+文件描述符6用来保存STDIN的位置
+
+15.4.4 创建读写文件描述符
+#糟糕的实践，会覆盖数据
+由于你是对同一个文件进行数据读写，shell会维护一个
+内部指针，指明在文件中的当前位置。任何读或写都会从文件指针上次的位置开始
+exec 3<> testfile
+read line <&3
+
+15.4.5 关闭文件描述符
+如果你创建了新的输入或输出文件描述符，shell会在脚本退出时自动关闭它们；
+要关闭文件描述符，将它重定向到特殊符号&-。
+exec 3>&-
+
+在关闭文件描述符时还要注意另一件事。如果随后你在脚本中打开了同一个输出文件，shell
+会用一个新文件来替换已有文件。这意味着如果你输出数据，它就会覆盖已有文件；
+
+15.5 列出打开的文件描述符
+lsof命令会列出整个Linux系统打开的所有文件描述符；
+有大量的命令行选项和参数可以用来帮助过滤lsof的输出。最常用的有-p和-d，前者允许
+指定进程ID（PID），后者允许指定要显示的文件描述符编号。
+要想知道进程的当前PID，可以用特殊环境变量$$（shell会将它设为当前PID）。-a选项用来
+对其他两个选项的结果执行布尔AND运算
+$lsof -a -p $$ -d 0,1,2 
+
+表15-2 lsof的默认输出
+列 描 述
+COMMAND 正在运行的命令名的前9个字符
+PID 进程的PID
+USER 进程属主的登录名
+FD 文件描述符号以及访问类型（r代表读，w代表写，u代表读写）
+TYPE 文件的类型（CHR代表字符型，BLK代表块型，DIR代表目录，REG代表常规文件）
+DEVICE 设备的设备号（主设备号和从设备号）
+SIZE 如果有的话，表示文件的大小
+NODE 本地文件的节点号
+NAME 文件名
+与STDIN、STDOUT和STDERR关联的文件类型是字符型。因为STDIN、STDOUT和STDERR文
+件描述符都指向终端，所以输出文件的名称就是终端的设备名。所有3种标准文件都支持读和写
+
+15.6 阻止命令输出
+在Linux系统上null文件的标准位置是/dev/null。你重定向到该位置的任何数据都会被丢掉;
+也可以在输入重定向中将/dev/null作为输入文件。由于/dev/null文件不含有任何内容，程序员
+通常用它来快速清除现有文件中的数据，而不用先删除文件再重新创建。
+cat /dev/null > testfile
+
+15.7 创建临时文件
+Linux使用/tmp目录来存放不需要永久保留的
+文件。大多数Linux发行版配置了系统在启动时自动删除/tmp目录的所有文件。
+系统上的任何用户账户都有权限在读写/tmp目录中的文件。这个特性为你提供了一种创建临
+时文件的简单方法，而且还不用操心清理工作。mktemp命令可以在/tmp目录中创建一个唯一的临时
+文件。shell会创建这个文件，但不用默认的umask值（参见第7章）。它会将文件的读和写权限分
+配给文件的属主，并将你设成文件的属主;
+
+要用mktemp命令在本地目录中创建一
+个临时文件，你只要指定一个文件名模板就行了。模板可以包含任意文本文件名，在文件名末尾
+加上6个X就行了。
+$ mktemp testing.XXXXXX
+mktemp命令会用6个字符码替换这6个X，从而保证文件名在目录中是唯一的
+在/tmp 目录创建临时文件
+-t选项会强制mktemp命令来在系统的临时目录来创建该文件。在用这个特性时，mktemp命
+令会返回用来创建临时文件的全路径，而不是只有文件名。
+
+$ mktemp -t test.XXXXXX
+-d选项告诉mktemp命令来创建一个临时目录而不是临时文件
+
+#指定文件名的话在当前目录创建目录，否则在/tmp目录中创建目录
+$mktemp -d dir.XXXXXX
+tempfile=$(mktemp test19.XXXXXX)#用完再删除
+
+15.8 记录消息
+tee命令相当于管道的一个T型接头。它将从STDIN过来的数据同时发往两处。一处是
+STDOUT，另一处是tee命令行所指定的文件名：
+tee filename
+由于tee会重定向来自STDIN的数据，你可以用它配合管道命令来重定向命令输出。
+默认情况下，tee命令会在每次使用时覆盖输出文件内容。
+将数据追加到文件中，必须用-a选项。
+
+$cat test23
+#!/bin/bash
+# read file and create INSERT statements for MySQL
+outfile='members.sql'
+IFS=','
+while read lname fname address city state zip
+do
+cat >> $outfile << EOF
+INSERT INTO members (lname,fname,address,city,state,zip) VALUES
+('$lname', '$fname', '$address', '$city', '$state', '$zip');
+EOF
+done < ${1}
+
+#done < $1 也对，见param.sh
+done < ${1}
+当运行程序test23时，$1代表第一个命令行参数。它指明了待读取数据的文件。read语句
+会使用IFS字符解析读入的文本，我们在这里将IFS指定为逗号。
+脚本中另外两处重定向操作出现在同一条语句中：
+cat >> $outfile << EOF
+这条语句中包含一个输出追加重定向（双大于号）和一个输入追加重定向（双小于号）。输
+出重定向将cat命令的输出追加到由$outfile变量指定的文件中。cat命令的输入不再取自标准
+输入，而是被重定向到脚本中存储的数据。EOF符号标记了追加到文件中的数据的起止。
