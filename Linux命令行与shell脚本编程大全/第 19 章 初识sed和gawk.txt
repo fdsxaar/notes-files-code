@@ -1,5 +1,11 @@
 第19 章 初识sed和gawk
 
+sed编辑器会执行下列操作:
+(1) 一次从输入中读取一行数据。
+(2) 根据所提供的编辑器命令匹配数据。
+(3) 按照命令修改流中的数据。
+(4) 将新的数据输出到STDOUT。
+
 sed编辑器被称作流编辑器（stream editor），
 sed命令的格式如下。
 sed options script file
@@ -55,7 +61,7 @@ EOF（End-of-File）字符。Ctrl+D组合键会在bash中产生一个EOF字符�
  $1代表文本行中的第1个数据字段；
  $2代表文本行中的第2个数据字段；
  $n代表文本行中的第n个数据字段。 //代表整个文本行，与 $0 相同
-。gawk中默认的字段分隔符是任意的空白字符（例如空格或制
+gawk中默认的字段分隔符是任意的空白字符（例如空格或制
 表符）。
 
 4. 在程序脚本中使用多个命令
@@ -66,7 +72,7 @@ $ echo "My name is Rich" | gawk '{$4="Christine"; print $0}'
 $ gawk '{
 > $4="Christine"
 > print $0}'
-My name is Rich、
+My name is Rich
 
 5. 从文件中读取程序
 $ gawk -F: -f script2.gawk /etc/passwd
@@ -78,7 +84,6 @@ $ cat script3.gawk
 text = "'s home directory is "
 print $1 text $6
 }
-gawk程序在引用变量值时并未像shell脚本一样使用美元符。
 
 6. 在处理数据前运行脚本
 BEGIN关键字就是用来做这个的。它会强制gawk在读取数据前执行BEGIN关键字后指定的程序脚本。
@@ -109,7 +114,7 @@ $ sed -n 's/test/trial/p' data5.txt
 只输出被替换命令修改过的行。
 
 2. 替换字符
-$ sed 's/\/bin\/bash/\/bin\/csh/' /etc/passwd
+$ sed -n 's/\/bin\/bash/\/bin\/csh/p' /etc/passwd
 由于正斜线通常用作字符串分隔符，因而如果它出现在了模式文本中的话，必须用反斜线来
 转义
 sed编辑器允许选择其他字符来作为替换命令中的字符串分隔符：
@@ -141,12 +146,19 @@ $ sed '2,3s/dog/cat/' data1.txt
 如果想将命令作用到文本中从某行开始的所有行，可以用特殊地址——美元符。
 $ sed '2,$s/dog/cat/' data1.txt
 
+//可以使用正则表达式匹配 
 2. 使用文本模式过滤器
 sed编辑器允许指定文本模式来过滤出命令要作用的行。格式如下：
 /pattern/command
 $ sed '/dog/s/dog/dogdog/' data1.txt 
 #用法错误，不能混合使用行寻址与文本模式过滤
 $ sed '/dog/1,$s/dog/dogdog/' data1.txt 
+
+3.命令组合
+sed '2{
+> s/fox/elephant/
+> s/dog/cat/
+> }' data1.txt
 
 19.2.3 删除行
 删除命令d名副其实，它会删除匹配指定寻址模式的所有行。使用该命令时要特别小心，如
@@ -156,12 +168,12 @@ $ sed '/dog/1,$s/dog/dogdog/' data1.txt
 $ sed '3d' data6.txt
 通过特定行区间指定：
 $ sed '2,3d' data6.txt
-特殊的文件结尾字符：
+特殊的文件结尾字符：    
 $ sed '3,$d' data6.txt
 sed编辑器的模式匹配特性也适用于删除命令。
 $ sed '/number 1/d' data6.txt
 
-ed编辑器不会修改原始文件。你删除的行只是从sed编辑器的输出中消失了。原始
+sed编辑器不会修改原始文件。你删除的行只是从sed编辑器的输出中消失了。原始
 文件仍然包含那些“删掉的”行。
 
 #区间操作，有坑
@@ -173,6 +185,10 @@ $ sed '/1/,/5/d' data7.txt
 $
 因为删除功能在匹配到第一个模式的时候打开了，但一直没匹配到结束模式，所以整个数据
 流都被删掉了。
+
+当使用插入命令时，文本会出现在数据流文本的前面。
+$ echo "Test Line 2" | sed 'i\Test Line 1'
+$ echo "Test Line 2" | sed 'a\Test Line 1'
 
 要将新行附加到数据流的末尾，只要用代表数据最后一行的美元符就可以了。
 $ sed '$a\xxx' file 
@@ -226,8 +242,7 @@ $ sed -n '2,3p' data6.txt
 $sed '/1|2|3|4/p' data1.txt
 $sed -n '/[[:digit:]]/p' data1.txt
 
-可以
-创建一个脚本在修改行之前显示该行。
+可以创建一个脚本在修改行之前显示该行。
 $ sed -n '/3/{
 > p
 > s/line/test/p
@@ -248,7 +263,7 @@ $ sed -n '/number 4/{
 
 3. 列出行
 列出（list）命令（l）可以打印数据流中的文本和不可打印的ASCII字符。任何不可打印
-字符要么在其八进制值前加一个反斜线，要么使用标准C风格的命名法
+字符要么在其八进制值前加一个反斜线，要么使用标准C风格的命名法,比如\t，来代表制表符。
 
 $ cat data9.txt
 This line contains tabs.
@@ -270,6 +285,8 @@ filename可以使用相对路径或绝对路径，但不管是哪种，运行sed
 件的写权限。地址可以是sed中支持的任意类型的寻址方式，例如单个行号、文本模式、行区间
 或文本模式
 如果你不想让行显示到STDOUT上，你可以用sed命令的-n选项
+$sed '1,2w test.txt' data6.txt
+$sed -n '/Browncoat/w Browncoats.txt' data11.txt
 
 2. 从文件读取数据
 读取（read）命令（r）允许你将一个独立文件中的数据插入到数据流中。

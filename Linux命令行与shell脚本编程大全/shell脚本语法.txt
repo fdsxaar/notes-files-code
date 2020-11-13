@@ -1,0 +1,169 @@
+用户变量
+用户变量可以是任何由字母、数字或下划线组成的文本字符串，长度不超过20个。用户变量
+区分大小写，所以变量Var1和变量var1是不同的。这个小规矩经常让脚本编程初学者感到头疼。
+使用等号将值赋给用户变量。在变量、等号和值之间不能出现空格（另一个困扰初学者的用
+法）。这里有一些给用户变量赋值的例子。
+var1=10
+var2=-57
+var3=testing
+var4="still more testing"
+
+与系统变量类似，用户变量可通过美元符引用。
+重要的是要记住，引用一个变量值时需要使
+用美元符，而引用变量来对其进行赋值时则不要使用美元符
+
+11.4.3 命令替换
+将命令输出赋给变量
+反引号字符（`）
+$()格式
+testing=`date`
+testing=$(date)
+
+
+bash shell的if语句会运行if后面的那个命令。如果该命令的退出状态码（参见第11章）是0
+（该命令成功运行），位于then部分的命令就会被执行。如果该命令的退出状态码是其他值， then
+部分的命令就不会被执行，bash shell会继续执行脚本中的下一个命令。fi语句用来表示if-then
+语句到此结束。
+if command1
+then
+    command set 1
+elif command2
+then
+    command set 2
+elif command3
+then
+    command set 3
+elif command4
+then
+    command set 4
+fi
+
+test命令提供了在if-then语句中测试不同条件的途径。如果test命令中列出的条件成立，
+test命令就会退出并返回退出状态码0
+test condition
+
+//用test命令 比较数字、字数串、文件、目录 
+if test condition
+then
+    commands
+fi
+如果不写test命令的condition部分，它会以非零的退出状态码退出，并执行else语句块。
+
+bash shell提供了另一种条件测试方法，无需在if-then语句中声明test命令。
+if [ condition ]
+then
+   commands
+fi
+注意，第一个方括号之后和第二个方括号之前必须加上一个空格;
+bash shell只能处理整数,不能在test命令中使用浮点值。
+
+bash shell提供了两项可在if-then语句中使用的高级特性：
+ 用于数学表达式的双括号
+ 用于高级字符串处理功能的双方括号
+
+(( expression ))
+expression可以是任意的数学赋值或比较表达式。除了test命令使用的标准数学运算符，
+表12-4列出了双括号命令中会用到的其他运算符。
+
+if (( $val1 ** 2 > 90 ))
+注意，不需要将双括号中表达式里的大于号转义。这是双括号命令提供的另一个高级特性。
+      #!/bin/bash
+      2 #数字比较不再需要 -gt -ge 啦
+      3 if ((3>1))
+      4 then
+      5 echo "大于 "
+      6 else
+      7     echo "3<=4"
+      8 fi
+
+
+
+双方括号命令提供了针对字符串比较的高级特性。双方括号命令的格式如下：
+[[ expression ]]
+提供了test命令未提供的另一个特性——模式匹配（pattern matching）
+在模式匹配中，可以定义一个正则表达式来匹配字符串值
+
+case 命令
+case variable/value in
+pattern1 | pattern2) commands1;;
+pattern3) commands2;;
+*) default commands;;
+esac
+
+for var in list
+do
+   commands
+done
+//不像其他语言一样，var的作用域仅限于for循环
+在最后一次迭代后，$var变量的值会在shell脚本的剩余部分一直保持有效
+
+临时更改内部字段分隔符（internal field separator）
+IFS.OLD=$IFS
+IFS=$'\n'
+<在代码中使用新的IFS值>
+IFS=$IFS.OLD
+
+用通配符读取目录
+for file in /home/rich/test/*
+do
+  if [ -d "$file" ]
+  then
+    echo "$file is a directory"
+  elif [ -f "$file" ]
+  then
+    echo "$file is a file"
+  fi
+done
+在Linux中，目录名和文件名中包含空格当然是合法的。要适应这种情况，应该将$file变
+量用双引号圈起来
+for file in /home/rich/.b* /home/rich/badtest //放在一行 
+
+bash中C语言风格的for循环的基本格式。
+for (( variable assignment ; condition ; iteration process ))
+for (( a = 1; a < 10; a++ ))
+只能在for循环中定义一种条件
+
+
+while test command
+do
+   other commands
+done
+while命令中定义的test command和if-then语句中的格式一模一样。可
+以使用任何普通的bash shell命令，或者用test命令进行条件测试，比如测试变量值。
+while命令允许你在while语句行定义多个测试命令。只有最后一个测试命令的退出状态码
+会被用来决定什么时候结束循环,每个测试命令都出现在单独的一行上。
+
+until命令要求你指定一个通常返回非零退
+出状态码的测试命令。只有测试命令的退出状态码不为0，bash shell才会执行循环中列出的命令。
+一旦测试命令返回了退出状态码0，循环就结束了。
+#用退出状态码似乎不对，util应该是条件测试
+until test commands
+do
+    other commands
+done
+
+通常必须遍历存储在文件中的数据
+ 使用嵌套循环
+ 修改IFS环境变量
+IFS.OLD=$IFS
+IFS=$'\n'
+for (())
+    IFS=:
+    for(())
+
+有时你在内部循环，但需要停止外部循环。break命令接受单个命令行参数值：
+break n
+其中n指定了要跳出的循环层级。默认情况下，n为1，表明跳出的是当前的循环。如果你将
+n设为2，break命令就会停止下一级的外部循环
+
+continue命令可以提前中止某次循环中的命令，但并不会完全终止整个循环;
+跳过此次循环中剩余的命令，但整个循环还会继续。
+和break命令一样，continue命令也允许通过命令行参数指定要继续执行哪一级循环：
+continue n
+其中n定义了要继续的循环层级
+可以对循环的输出使用管道或进行重定向。这可以通过在done命令
+之后添加一个处理命令来实现。
+for file in /home/rich/*
+do
+//
+done > output.txt

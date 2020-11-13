@@ -4,11 +4,12 @@
  POSIX基础正则表达式（basic regular expression，BRE）引擎
  POSIX扩展正则表达式（extended regular expression，ERE）引擎
 
-sed编辑器）只符合了BRE引擎规范的子集
+sed编辑器只符合了BRE引擎规范的子集
 
 POSIX BRE引擎通常出现在依赖正则表达式进行文本过滤的编程语言中。它为常见模式提供
-了高级模式符号和特殊符号，比如匹配数字、单词以及按字母排序的字符。gawk程序用ERE引擎
-来处理它的正则表达式模式。
+了高级模式符号和特殊符号，比如匹配数字、单词以及按字母排序的字符。
+
+gawk程序用ERE引擎来处理它的正则表达式模式。
 
 20.2 定义BRE 模式
 第一条原则就是：正则表达式模式都区分大小写。这意味着它们只会匹配大小写也相符
@@ -20,8 +21,8 @@ $ echo "This is a test" | sed -n '/this/p'
 
 #正斜线也需要转义，
 #诡异的是 
-$echo "\fuck" | sed -n "/\\/p"  错误
-$echo "\fuck" | sed -n '/\\/p'  正确
+$echo "\fuck" | sed -n "/\\/p"    //双引号错误
+$echo "\fuck" | sed -n '/\\/p'    //单引号正确
 由于反斜线是特殊字符，如果要在正则表达式模式中使用它，你必须对其转义，这样就产生
 了两个反斜线。
 $ echo "\ is a special character" | sed -n '/\\/p'
@@ -57,6 +58,7 @@ sed  '/^$/d' data.txt
 
 特殊字符点号用来匹配除换行符之外的任意单个字符。它必须匹配一个字符，如果在点号字
 符的位置没有字符，那么模式就不成立。
+sed -n '/.at/p' data6
 
 20.2.5 字符组
 可以定义用来匹配文本模式中某个位置的一组字符。如果字符组中的某个字符出现在了数据
@@ -69,8 +71,7 @@ sed  '/^$/d' data.txt
 $ echo "Yes" | sed -n '/[Yy][Ee][Ss]/p'
 
 20.2.6 排除型字符组
-寻找组中没有的字符，而不是去寻找
-在字符组的开头加个脱字符。
+寻找组中没有的字符，在字符组的开头加个脱字符。
 echo "fuck" | sed -n "/fu[^y]k/p"
 
 20.2.7 区间
@@ -93,11 +94,21 @@ echo "fuck" | sed -n "/fu[^y]k/p"
 [[:space:]] 匹配任意空白字符：空格、制表符、NL、FF、VT和CR
 [[:upper:]] 匹配任意大写字母字符A~Z
 
+
 20.2.9 星号
 在字符后面放置星号表明该字符必须在匹配模式的文本中出现0次或多次。
 $ echo "fuuuuk" | sed -n "/fu*k/p"
 这个模式符号广泛用于处理有常见拼写错误或在不同语言中有拼写变化的单词
-$ echo "I'm getting a color TV" | sed -n '/colou*r/p'
+$ echo "I'm getting a colour TV" | sed -n '/colou*r/p'
+$ echo "baat" | sed -n '/b[ae]*t/p'
+baat
+$ echo "baaeeet" | sed -n '/b[ae]*t/p'
+baaeeet
+$ echo "baeeaeeat" | sed -n '/b[ae]*t/p'
+baeeaeeat
+$ echo "baakeeet" | sed -n '/b[ae]*t/p'
+$
+只要a和e字符以任何组合形式出现在b和t字符之间（就算完全不出现也行）
 
 # 点号无法匹配换行符
 将点号特殊字符和星号特殊字符组合起来。这个组合能够匹配任意数量
@@ -116,13 +127,18 @@ gawk程序能够识别ERE模式，但sed编辑器不能。
 问号表明前面的字符可以出现0次或1次
 echo "fuck" | gawk -n '/f[u]?ck/{print $0}'
 
+//对于整个字符组而言 
 #如果字符组中的字符出现了0次或1次，模式匹配就成立。但如果两个字符都出现了，或者其
 #中一个字符出现了2次，模式匹配就不成立
+echo "beat" | gawk '/b[ae]?t/{print $0}'
 echo "fuck" | gawk -n '/f[uc]?k/{print $0}'
+echo "beat" | gawk '/b[ae]?t/{print $0}'
 
 20.3.2 加号
-加号表明前面的字符可以出现1次或多次，但必须至少出现1次
+加号表明前面的字符可以出现1次或多次，但必须至少出现1次；这次如果字符组中定义的任一字符出现了，
+文本就会匹配指定的模式。
 echo "fuck" | gawk -n '/f[uc]+k/{print $0}'
+echo "beet" | gawk '/b[ae]+t/{print $0}'
 
 20.3.3 使用花括号
 这通常称为间隔（interval）。
@@ -134,6 +150,14 @@ echo "fuck" | gawk -n '/f[uc]+k/{print $0}'
 echo "fuuuuck" | gawk --re-interval '/fu{4}ck/{print $0}'
 echo "fuuuuck" | gawk --re-interval '/f[uc]{1,100}ck/{print $0}'
 
+
+$ echo "beeat" | gawk --re-interval '/b[ae]{1,2}t/{print $0}'
+$
+$ echo "baeet" | gawk --re-interval '/b[ae]{1,2}t/{print $0}'
+$
+$ echo "baeaet" | gawk --re-interval '/b[ae]{1,2}t/{print $0}'
+$
+如果字母a或e在文本模式中只出现了1~2次，则正则表达式模式匹配；否则，模式匹配失败。
 20.3.4 管道符号
 expr1|expr2|...
 正则表达式和管道符号之间不能有空格，否则它们也会被认为是正则表达式模式的一部分。

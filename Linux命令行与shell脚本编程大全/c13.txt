@@ -9,12 +9,18 @@ done
 开：for var in list; do
 for循环假定每个值都是用空格分割的；for命令用空格来划分列表中的每个值。如果在单独的数据值中有
 空格，就必须用双引号将这些值圈起来。
+//不像其他语言一样，var的作用域仅限于for循环
+在最后一次迭代后，$var变量的值会在shell脚本的剩余部分一直保持有效
 
 单引号问题：
  使用转义字符（反斜线）来将单引号转义；
  使用双引号来定义用到单引号的值。
+for test in I don\'t know if "this'll" work
+do
+echo "word:$test"
+done
 
-叫作内部字段分隔符（internal field separator）。
+内部字段分隔符（internal field separator）。
 IFS环境变量定义了bash shell用作字段分隔符的一系列字符。默认情况下，bash shell会将下列字
 符当作字段分隔符：
  空格
@@ -29,6 +35,11 @@ IFS=$'\n'
 <在代码中使用新的IFS值>
 IFS=$IFS.OLD
 这就保证了在脚本的后续操作中使用的是IFS的默认
+还有其他一些IFS环境变量的绝妙用法。假定你要遍历一个文件中用冒号分隔的值（比如在
+/etc/passwd文件中）。你要做的就是将IFS的值设为冒号。
+IFS=:
+如果要指定多个IFS字符，只要将它们在赋值行串起来就行。
+IFS=$'\n':;"
 
 最后，可以用for命令来自动遍历目录中的文件。进行此操作时，必须在文件名或路径名中
 使用通配符。它会强制shell使用文件扩展匹配。文件扩展匹配是生成匹配指定通配符的文件名或
@@ -82,6 +93,9 @@ n设为2，break命令就会停止下一级的外部循环
 
 continue命令可以提前中止某次循环中的命令，但并不会完全终止整个循环;
 跳过此次循环中剩余的命令，但整个循环还会继续。
+和break命令一样，continue命令也允许通过命令行参数指定要继续执行哪一级循环：
+continue n
+其中n定义了要继续的循环层级
 
 可以对循环的输出使用管道或进行重定向。这可以通过在done命令
 之后添加一个处理命令来实现。
@@ -90,4 +104,9 @@ while IFS=’,’ read –r userid name
 read命令会自动读取.csv文本文件的下一行内容，所以不需要专门再写一个循环来处理。当
 read命令返回FALSE时（也就是读取完整个文件时），while命令就会退出。
 要想把数据从文件中送入while命令，只需在while命令尾部使用一个重定向符就可以了。
-
+input="users.csv"
+while IFS=',' read -r userid name
+do
+  echo "adding $userid"
+  useradd -c "$name" -m $userid
+done < "$input"

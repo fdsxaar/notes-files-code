@@ -18,7 +18,7 @@
 通过SIGINT信号，可以中断shell。Linux内核会停止为shell分配CPU处理时间。这种情况发
 生时，shell会将SIGINT信号传给所有由它所启动的进程，以此告知出现的状况。
 
-Ctrl+Z组合键会生成一个SIGTSTP信号，停止shell中运行的任何进程。停止（stopping）进程
+Ctrl+Z组合键会生成一个SIGTSTP信号，停止shell中运行的任何进程。
 如果在有已停止作业存在的情况下，你仍旧想退出shell，只要再输入一遍exit命令就行了。
 shell会退出，终止已停止作业。或者，既然你已经知道了已停止作业的PID，就可以用kill命令
 来发送一个SIGKILL信号来终止它。
@@ -35,8 +35,7 @@ trap commands signals
 在trap命令行上，你只要列出想要shell执行的命令，以及一组用空格分开的待捕
 获的信号
 
-
-在shell脚本退出时进行捕获
+在shell脚本退出时进行捕获,
 要捕获shell脚本的退出，只要在trap命令后加上EXIT信号就行。
 trap "echo Goodbye..." EXIT 
 
@@ -50,7 +49,7 @@ trap -- SIGINT
 
 16.2.1 后台运行脚本
 要在命令后加个&符;
-当后台进程运行时，它仍然会使用终端显示器来显示STDOUT和STDERR消;
+当后台进程运行时，它仍然会使用终端显示器来显示STDOUT和STDERR;
 注意，在ps命令的输出中，每一个后台进程都和
 终端会话（pts/0）终端联系在一起。如果终端会话退出，那么后台进程也会随之退出。
 当你要退出终端会话时，要是存在被停止的进程，会出现警告信息。
@@ -97,7 +96,7 @@ jobs命令
 在多任务操作系统中（Linux就是），内核负责将CPU时间分配给系统上运行的每个进程。调
 度优先级（scheduling priority）是内核分配给进程的CPU时间（相对于其他进程）。在Linux系统
 中，由shell启动的所有进程的调度优先级默认都是相同的。
-调度优先级是个整数值，从20（最高优先级）到+19（最低优先级）。默认情况下，bash shell
+调度优先级是个整数值，从-20（最高优先级）到+19（最低优先级）。默认情况下，bash shell
 以优先级0来启动所有进程。
 
 nice命令允许你设置命令启动时的调度优先级。要让命令以更低的优先级运行，只要用nice
@@ -136,15 +135,17 @@ time参数指定了Linux系统何时运行该作业。如果你指定的时间�
  明天10:15 PM
  10:15+7天
 
+//作业队列 
 在你使用at命令时，该作业会被提交到作业队列（job queue）。作业队列会保存通过at命令
 提交的待处理的作业。针对不同优先级，存在26种不同的作业队列。作业队列通常用小写字母a~z
 和大写字母A~Z来指代。
 作业队列的字母排序越高，作业运行的优先级就越低（更高的nice值）。默认情况下，at的作业会被提交到a作业队列。
 如果想以更高优先级运行作业，可以用-q参数指定不同的队列字母。
 
+//作业队列中作业的输出 
 当作业在Linux系统上运行时，显示器并不会关联到该作业。取而代之的是，Linux系统会将
 提交该作业的用户的电子邮件地址作为STDOUT和STDERR。任何发到STDOUT或STDERR的输出都
-会通过邮件系统发送给该用户。
+会通过邮件系统发送给该用户。所以最好在程序中重定向STDOUT和STDERR 
 
 如果不想在at命令中使用邮件或重定向，最好加上-M选项来屏蔽作业产生的输出信息。
 
@@ -167,6 +168,7 @@ min hour dayofmonth month dayofweek command
 dayofmonth表项指定月份中的日期值（1~31）。
 
 常用的方法是加一条使用date命令的if-then语句来检查明天的日期是不是01：
+//date +%d 显示成十进制格式 
 00 12 * * * if [`date +%d -d tomorrow` = 01 ] ; then ; command
 它会在每天中午12点来检查是不是当月的最后一天，如果是，cron将会运行
 
@@ -192,7 +194,7 @@ anacron程序只会处理位于cron目录的程序
 $ sudo cat /var/spool/anacron/cron.monthly
 
 anacron程序使用自己的时间表（通常位于/etc/anacrontab）来检查作业目录
-
+period delay identifier command
 period条目定义了作业多久运行一次，以天为单位。anacron程序用此条目来检查作业的时间
 戳文件。delay条目会指定系统启动后anacron程序需要等待多少分钟再开始运行错过的脚本。
 command条目包含了run-parts程序和一个cron脚本目录名。run-parts程序负责运行目录中传给它的
