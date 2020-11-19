@@ -1,0 +1,815 @@
+第二章
+kubectl cluster-info //集群信息
+kubectl get nodes //集群节点
+kubectl describe node 命令，而无须指定节点名，它将打印出所有节点的描述信息。
+
+minikube status
+
+将下面的代码添加到～／ . bashrc 或类似的文件中：
+alias k =kubectl  //创建别名
+source ~/.bash_profile 
+source <(kubectl completion bash | sed s/kubectl/k/g) //别名自动补全
+
+自动补全：
+https://sourabhbajaj.com/mac-setup/BashCompletion/
+source <(kubectl completion bash)
+
+kubectl run kubia2 --image=fdsxaar/kubia --port=8080
+Flag --generator has been deprecated, has no effect and will be removed in the future.
+//查看pod状态
+kubectl get pods 
+//查看更多信息 
+kubectl describe pod
+
+因为如果你创建
+一个常规服务(一个Cluster IP 服务）， 比如pod ，它也只能从集群内部访问。通
+过创建LoadBalancer 类型的服务，将创建一个外部的负载均衡，可以通过负载
+均衡的公共IP 访问pod
+
+//在浏览器中打开dashboard
+minikube dashboard 
+//创建一个应用deployment
+//kubectl先创建一个deployment, Kubernetes收到请求后创建一个pod,然后
+//被调度到一个工作节点；工作节点上的Kubelet指示Docker pull镜像，创建一个容器，
+//然后执行 
+k create deployment kubia --image=fdsxaar/kubia:latest 
+When you ran the kubectl create command, it created a new Deployment object 
+in the cluster by sending an HTTP request to the Kubernetes API server. 
+Kubernetes then created a new Pod object, which was then assigned or scheduled
+ to one of the worker nodes. The Kubernetes agent on the worker node (the Kubelet) 
+ became aware of the newly created Pod object, saw that it was scheduled to its node,
+ and instructed Docker to pull the specified image from the registry, create a container
+ from the image, and execute it.
+//列出deployments
+kubectl get deployments
+//列出pods
+kubectl get pods 
+Deployments, Services, Pods and Nodes are Kubernetes objects/resources.
+You can list them with kubectl get and inspect them with kubectl describe
+
+//minikube不提供load balancer，
+kubectl expose deployment kubia --type=LoadBalancer --port 8080
+kubectl get svc //列出服务 
+kubectl get svc kubia 
+
+//对于minikube
+kubectl expose deployment kubia --type=LoadBalancer --port 8080
+minikube service kubia --url //获取服务的地址,去掉--url会打开浏览器 
+>>http://192.168.49.2:30185   //宿主机能访问
+This is the IP of the Minikube virtual machine. You can confirm this
+by executing the minikube ip command. The Minikube VM is also your
+single worker node. The port 30838 is the so-called node port.
+ 
+To connect this to what I mentioned earlier about the load balancer forwarding 
+connections to the nodes and the nodes then forwarding them to the containers: 
+the node ports are exactly where the load balancer sends incoming requests to. 
+Kubernetes  then ensures that they are forwarded to the application running in 
+the container 
+//缩略
+service-svc,po-pods,no-nodes,deploy-deployments
+
+//扩展应用实例
+kubectl scale deployment kubia --replicas=3
+//查看扩展结果
+k get deploy 
+k get pods -o wide //查看pods的部署节点 
+
+ load balancer：云设施供应商提供的负载均衡，分布node间的负载，
+ k8s提供的负载均衡，分布一个node上的pod间的负载 
+ 
+k8s的两种视图：逻辑视图和物理视图 
+https://drek4537l1klr.cloudfront.net/luksa3/v-5/Figures/3.13.png
+
+4 Introducing the Kubernetes API objects
+
+The collection of all deployments in the cluster is a REST resource exposed at 
+/api/v1/deployments. When you use the GET method to send an HTTP request to this 
+URI, you receive a response that lists all deployment instances in the cluster.
+
+you can compare resources and object types with views and tables. Resources are 
+views through which you interact with objects.
+
+对象的构成：
+Type Metadata, Object Metadata, Spec, Status 
+//获取Node object 
+k get nodes
+//考察一个节点对象
+//kubectl get <kind> <name> -o yaml
+kubectl get node <node-name> -o yaml // -o json 显示json格式信息  
+
+//通过http获取Node对象 
+k proxy 
+http://127.0.0.1:8001/api/v1/nodes/minikube
+
+spec section：
+The podCIDR fields specify the pod IP range assigned to the node. 
+Pods running on this node are assigned IPs from this range
+
+kubectl explain <kind> //探究某种对象
+Usually, you start by asking it to provide the basic description
+ of the object kind by running kubectl explain <kind>
+//探究对象子域
+kubectl explain node.spec 
+//递归探究结构，没有解释
+kubectl explain pods --recursive
+//只探究一部分
+kubectl get node <name> -o json | jq .status.conditions. 
+The equivalent tool for YAML is yq.
+//这些输出信息有助于问题调试 
+k get node minikube -o json | jq .status.conditions
+
+//另一种探究命令 k describe ,能输出对象中不存在的额外详细信息，
+//由kubectl从其他api对象收集而来 
+kubectl describe node kind-worker-2
+
+//探查事件
+kubectl get ev //ev是events简写 
+$ kubectl get ev -o wide //输出更多信息 
+$ kubectl get ev --field-selector type=Warning //筛选器，只输出Warning级别的events
+kubectl explain events
+To inspect the events in your cluster, the commands kubectl describe and kubectl get 
+events should be sufficient
+
+Which pods are running on the node is not part of the node’s status, but the kubectl
+ describe node commands gets this information from the pods resource.
+ 
+5 Running applications in Pods
+//应用的可伸缩性 
+Front-end components usually have different scaling requirements 
+than back-end components, so we typically scale them individually. 
+When your pod contains both the front-end and back-end containers 
+and Kubernetes replicates it, you end up with multiple instances of
+ both the front-end and back-end containers, which isn’t always what 
+ you want. Stateful back-ends, such as databases, usually can’t be
+ scaled. At least not as easily as stateless front ends. If a container
+ has to be scaled separately from the other components, this is a clear
+ indication that it must be deployed in a separate pod.
+ 
+//用yaml文件创建pod
+Listing 5.1 A basic pod manifest: kubia.yaml
+apiVersion: v1
+kind: Pod
+metadata:    
+  name: kubia
+spec:    
+  containers:     
+  - name: kubia
+    image: luksa/kubia:latest
+    ports:        
+    - containerPort: 8080
+
+//命令行生成yaml
+kubectl run kubia --image=luksa/kubia:1.0 --dry-run=client -o yaml > mypod.yaml. 
+The --dry-run=client flag tells kubectl to output the definition instead of actually
+creating the object via the API.
+ 
+//创建一个pod
+$ kubectl apply -f kubia.yaml
+pod “kubia” created
+
+//查看pod的ip
+$ kubectl get pod kubia -o wide
+NAME    READY   STATUS    RESTARTS   AGE   IP           NODE     ...
+kubia   1/1     Running   0          35m   10.244.2.4   worker2  ...
+
+$ k get pods -o wide //显示所有的pods的信息 
+You can get the pod’s IP address by retrieving the pod’s full YAML and 
+searching for the podIP field in the status section. Alternatively, you 
+can display the IP with kubectl describe, but the easiest way is to use 
+kubectl get with the wide output option:
+
+//登陆节点 
+minikube ssh
+curl 172.17.0.3:8080 //与一个pod沟通 
+
+//一次性客户端连接pod
+kubectl run --image=tutum/curl -it --restart=Never --rm client-pod curl 10.244.2.4:8080
+kubectl run --image=tutum/curl -it --restart=Never --rm client-pod curl 172.17.0.6:8080
+
+This command runs a pod with a single container created from the tutum/curl image.
+ You can also use any other image that provides the curl binary executable. The -it 
+ option attaches your console to the container’s standard input and output, 
+ the --restart=Never option ensures that the pod is considered Completed when 
+ the curl command and its container terminate, and the --rm options removes the 
+ pod at the end. The name of the pod is client-pod and the command executed in its 
+ container is curl 10.244.2.4:8080.
+ 
+//使用port-forward连接pod
+$ kubectl port-forward kubia-stdin 8888:8080 //监听本地的8888端口
+$ kubectl port-forward kubia-ssl 8080 8443 9901 //转发到三个端口 
+
+k port-forward <pod-name> 8080 //监听在本地8080端口, 转发流量到pod-name 
+... Forwarding from 127.0.0.1:8080 -> 8080
+... Forwarding from [::1]:8080 -> 8080
+$curl localhost:8080 
+
+//查看日志
+$ kubectl logs kubia 
+$ kubectl logs kubia -f //查看实时日志 -f=flow 
+ each log line
+$ kubectl logs kubia –-timestamps=true //带有时间戳
+$ kubectl logs kubia –-timestamps
+$ kubectl logs kubia --since=2m //显示过去2m日志
+//The time format to be used is RFC3339
+$ kubectl logs kubia –-since-time=2020-02-01T09:50:00Z //after February 1st, 2020 at 9:50 a.m.
+$ kubectl logs kubia –-tail=10 //最后10行 --tail 10 也行
+
+$ kubectl cp kubia:/etc/hosts /tmp/kubia-hosts //从pod拷贝文件到本地机
+$ kubectl cp /path/to/local/file kubia:path/in/container //拷贝本地文件到pod
+The kubectl cp command requires the tar binary to be present in your container, but this requirement may 
+change in the future.
+
+//在pod的容器中执行命令 
+//kubectl exec [POD] -- [COMMAND]
+$ kubectl exec kubia -- ps aux
+//打开交互式shell
+$ kubectl exec -it kubia -- bash
+root@kubia:/#
+
+//附着到容器的标准输入、输出、错误流，有点像k logs -f 
+$ kubectl attach kubia
+
+//更改标准输入 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubia-stdin
+spec:
+  containers:
+  - name: kubia
+    image: luksa/kubia-stdin:1.0
+    stdin: true                        //值为true
+    ports:
+    - containerPort: 8080
+
+//-i选项, 传递标准输入到到容器
+$ kubectl attach -i kubia-stdin 
+Like the kubectl exec command, kubectl attach also supports the 
+--tty or -t option, which indicates that the standard input is a
+ terminal (TTY), but the container must be configured to allocate
+ a terminal through the tty field in the container definition.
+ 
+NOTE
+An additional field in the container definition, stdinOnce, determines
+ whether the standard input channel is closed when the attach session 
+ ends. It’s set to false by default, which allows you to use the standard
+ input in every kubectl attach session. If you set it to true, standard 
+ input remains open only during the first session
+
+//在一个pod中运行多个容器
+Listing 5.8 Manifest of pod kubia-ssl (kubia-ssl.yaml)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubia-ssl                                
+spec:
+  containers:                      //创建多个容器 
+  - name: kubia
+    image: luksa/kubia:1.0
+    ports:
+    - name: http                #B
+      containerPort: 8080       #B
+  - name: envoy
+    image: luksa/kubia-ssl-proxy:1.0
+    ports:
+    - name: https               #D
+      containerPort: 8443       #D
+    - name: admin               #E
+      containerPort: 9901       #E
+	 
+$ curl https://localhost:8443 --insecure
+$ kubectl logs kubia-ssl -c envoy //-c=--container 探查pod中的一个容器 
+$ kubectl logs kubia-ssl --all-containers //探查pod中的所有contaniner 
+$ kubectl exec -it kubia-ssl -c envoy -- bash 
+If you don’t provide the name, kubectl exec defaults to the first container
+specified in the pod manifest.
+
+//添加初始化container到pod
+Listing 5.9 Defining init containers in a pod manifest: kubia-init.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubia-init
+spec:
+  initContainers:                //初始化域 
+  - name: init-demo
+    image: luksa/init-demo:1.0
+  - name: network-check
+    image: luksa/network-connectivity-checker:1.0
+  containers:
+  - name: kubia
+    image: luksa/kubia:1.0
+    ports:
+    - name: http
+      containerPort: 8080
+  - name: envoy
+    image: luksa/kubia-ssl-proxy:1.0
+    ports:
+    - name: https
+      containerPort: 8443
+    - name: admin
+      containerPort: 9901
+$ kubectl get pods -w //观察实时信息
+$ kubectl get events -w //观察实时信息
+$ kubectl logs kubia-init -c network-check //探查pod中初始化容器的信息
+$ kubectl exec -it kubia-init-slow -c init-demo -- sh //进入pod中初始化容器,前提是该容器未结束
+
+//删除pod; 只能删除不能重启pod
+$ kubectl delete po kubia //等待直到对象不再存在；--wait=false 不等待 
+$ kubectl delete -f kubia-ssl.yaml //删除以yaml文件部署的pod
+$ kubectl delete -f kubia.yaml,kubia-ssl.yaml //删除多个
+$kubectl apply -f kubia.yaml,kubia-ssl.yaml //部署多个
+$ kubectl apply -f Chapter05/ //部署一个目录下的yaml；--recursive, 扫描子目录 
+$ kubectl delete -f Chapter05/ //删除
+$ kubectl delete po --all //删除所有pod, 但是无法删除由deployment创建的pod,controller会重新
+创建pod以满足replicas的number数目 
+$ kubectl delete all --all //删除所有类型的对象，及其该对象的所有实例, 包括deployment 
+Certain objects aren’t deleted when using this method, because the keyword all does not 
+include all object kinds.he Event object kind is one example of this
+$kubectl delete events,all --all //删除事件 
+
+6 Managing the lifecycle of the Pod’s containers
+pod的 phase：Pending,Running,Succeeded(成功终止),Failed(未成功终结),Unknown
+//查看phase
+$ kubectl get po kubia -o yaml | grep phase
+kubectl get po kubia -o json | jq .status.phase
+$ kubectl describe po kubia | grep Status:
+$ kubectl get po kubia
+
+pod conditions:PodScheduled,Initialized,ContainersReady,Ready
+//探测pod的Conditions
+$ kubectl describe po kubia | grep Conditions: -A5
+$ kubectl get po kubia -o json | jq .status.conditions //更详细的查看 
+
+container state: Waiting,Running,Terminated,Unknown
+//查看pod的容器
+$ kubectl describe po kubia | grep Containers: -A15
+$kubectl get po kubia -o json | jq .status.containerStatuses
+
+If one of the pod’s containers fails, the other containers continue to run.
+Kubernetes never restarts a container, but instead discards it and
+creates a new container. Regardless, we call this restarting a container.
+
+Any data that the process writes to the container’s filesystem is lost 
+when the container is recreated. This behavior is sometimes undesirable. 
+To persist data, you must add a storage volume to the pod, as explained in 
+the next chapter
+
+//pod级别的重启策略
+Pod restart policies：做出决策时是否考虑容器主进程的退出状态码, 0-正常, 非零-异常/失败退出
+Always(默认),OnFailure,Never
+
+//活跃探测
+liveness probes：
+种类：An HTTP GET probe;A TCP Socket probe;An Exec probe;
+
+//-p选项获取之前终止的容器的日志 
+$ kubectl logs kubia-liveness -c envoy -p
+
+//Tcp套接字探测 
+Listing 6.12 An example of a tcpSocket liveness probe
+    livenessProbe:
+      tcpSocket:
+        port: 1234
+      periodSeconds: 2
+      failureThreshold: 1
+
+//exec命令探测
+Listing 6.13 An example of an exec liveness probe
+    livenessProbe:
+      exec:
+        command:
+        - /usr/bin/healthcheck
+      periodSeconds: 2
+      timeoutSeconds: 1
+      failureThreshold: 1
+	  
+startup probes 与慢启动应用程序 
+Listing 6.14 Using a combination of startup and liveness probes
+  containers:
+  - name: kubia
+    image: luksa/kubia:1.0
+    ports:
+    - name: http
+      containerPort: 8080
+    startupProbe:
+      httpGet:
+        path: /
+        port: http
+      periodSeconds: 10       //10*12=120秒启动时间
+      failureThreshold:  12
+    livenessProbe:
+      httpGet:
+        path: /
+        port: http
+      periodSeconds: 5
+      failureThreshold: 2
+A successful startup probe indicates that the application has started successfully,
+and Kubernetes should switch to the liveness probe	  
+
+//为所有pod建立活跃探测 
+You should define a liveness probe for all your pods. Without one, Kubernetes 
+has no way of knowing whether your app is still alive or not, apart from checking 
+whether the application process has terminated.
+
+You may also want to run additional processes every time a container starts and 
+just before it stops. You can do this by adding lifecycle hooks to the container. 
+Two types of hooks are currently supported:
+
+//在容器启动时和终止前运行程序，类似于Java的钩子；容器级别的钩子，运行在容器中的
+//应用自身终结时，不会运行该钩子
+Post-start hooks, which are executed when the container is started, and
+Pre-stop hooks, which are executed shortly before the container stops
+
+和活跃性探测一样，适用于regular container，不可用于init container
+
+The same as with liveness probes, lifecycle hooks can only be applied to regular
+ containers and not to init containers. Unlike probes, 
+lifecycle hooks do not support tcpSocket handlers.
+
+//runs parallel to the main process
+The post-start lifecycle hook is invoked immediately after the container is created.
+ You can use the exec type of the hook to execute an additional process as the main
+ process starts, or you can use the httpGet hook to send an HTTP request to the
+ application running in the container to 
+perform some type of initialization or warm-up procedure
+//hook种类：
+exec hook;
+httpGet hook
+Listing 6.18 Using an httpGet post-start hook to warm up a web server
+    lifecycle:
+      postStart:
+        httpGet:
+          port: 80
+          path: /warmup
+		  
+//preStop
+Listing 6.19 Defining a pre-stop hook for Nginx
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - nginx
+          - -s
+          - quit
+
+如果postStart程序执行失败，容器会重启;如果preStop程序执行失败,
+容器会忽视这种失败/非零返回码，接着容器会终结；
+
+//在容器中，使用exec启动的进行就是父进程能捕获TERM信号
+//shell启动的进程是子进程，shell捕获信号后不会传给子进程
+The exec form is: ENTRYPOINT/CMD ["/myexecutable", "1st-arg", "2nd-arg"]
+The shell form is: ENTRYPOINT /myexecutable 1st-arg 2nd-arg
+
+The pod’s lifecycle：
+The three stages of the pod’s lifecycle are:
+1. The initialization stage, during which the pod’s init containers run.
+2. The run stage, in which the regular containers of the pod run.
+3. The termination stage, in which the pod’s containers are terminated.
+initialization stage：
+imagePullPolicy field in the container definition in the pod specification：
+Always;Never;IfNotPresent;
+Always:restart时,本地镜像不满足要求的镜像，要重新pull镜像，但是需要联系register；
+即使镜像存储在本地，只要镜像没有注册，那么restart容器会失败；
+
+通常init container执行一次，但有时重启整个pod时，从而也重启了init container，
+这就要求init container是幂等的；
+
+//重启策略是pod级别的 
+As with init containers, the pod’s restartPolicy
+determines whether the container is then restarted or not.
+
+Listing 6.20 Setting a lower terminationGracePeriodSeconds for faster pod shutdown
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubia-ssl-shortgraceperiod
+spec:
+  terminationGracePeriodSeconds: 5  //设置pod的终止宽限期
+  containers:
+  ...
+//覆盖terminationGracePeriodSeconds, --grace-period=0时不执行pre-stop hook
+$ kubectl delete po kubia-ssl --grace-period 10 
+
+7 Mounting storage volumes into the Pod’s containers
+each container has its own isolated filesystem provided by the container image.
+//添加卷到pod,将卷挂载在容器里
+Add a volume to the pod and mounting it into the container
+
+//卷的生命周期与pod的生命周期相连,独立于pod里的container的生命周期 
+The lifecycle of a volume is tied to the lifecycle of the entire pod and is 
+independent of the lifecycle of the container in which it is mounted
+//加载emptyDir卷
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fortune-emptydir
+spec:
+  volumes:
+  - name: content             //pod中的卷
+    emptyDir: {}
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    volumeMounts:
+    - name: content
+      mountPath: /usr/share/nginx/html //加载pod中的卷到container
+    lifecycle:
+      postStart:
+        exec:
+          command:
+          - sh
+          - -c
+          - "ls /usr/share/nginx/html/quote || (apk add fortune && fortune > /usr/share/nginx/html/quote)"
+    ports:
+    - name: http
+      containerPort: 80
+	  
+===========================第八章==========================
+8 Persisting application data with PersistentVolumes
+the storage is configured in a PersistentVolume object;
+
+//创建一个持久卷：
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mongodb-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+    - ReadOnlyMany
+  gcePersistentDisk:
+    pdName: mongodb
+    fsType: ext4
+//一个卷被绑定到一个声明后，其他持久卷声明不能再绑定该持久卷；
+//那么一个声明被多个pod引用，能导致并发读吗？
+//在持久卷声明层面实现并发读 
+The volume can be mounted by a single worker node in read/write mode. While it’s 
+mounted to the node, other nodes can’t mount the volume
+
+A typical application uses persistent volumes with a formatted filesystem. 
+However, a persistent volume can also be configured so that the application 
+can directly access the underlying block device without using a filesystem.
+ This is configured on the PersistentVolume object using the spec.volumeMode field.
+两种模式：
+Filesystem，默认模式，如果卷未被初始化，容器会初始化该卷；
+Block，卷被当作raw block
+
+//查看底层卷的信息
+kubectl explain pv.spec
+kubectl explain pv.spec.gcePersistentDisk //某种存储卷的详细域
+//查看卷信息
+k get pv
+k get pv mongodb-pv -o yaml //查看详细信息
+
+//持久卷声明，声明自动查找绑定之前声明过的持久卷 
+Listing 8.4 A PersistentVolumeClaim object manifest: mongodb-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: ""   //为空字符串，让k8s寻找预提供的PersistentVolume
+Kubernetes then goes into action and checks the list of available 
+persistent volumes, finds one that can provide enough storage space
+and the correct access mode for this claim, and binds the volume to the claim.
+//可以指定之前定义的volumeName
+You can also instruct Kubernetes to bind the claim to a specific persistent 
+volume by specifying its name in the claim’s spec.volumeName field.
+ 
+$ kubectl get pvc //查看pvc信息
+//persistent volume只能绑定到一个持久卷声明
+By claiming the persistent volume, you and your pods now have
+ the exclusive right to use the volume. No one else can claim 
+ the same volume until you release it by deleting the PersistentVolumeClaim object
+
+//删除pod, 删除pvc后，持久卷被released
+//persisten volume被释放，意思是绑定到这个persistent volume的persistent volume claim被删除
+$ kubectl get pv
+NAME         ...   RECLAIM POLICY   STATUS     CLAIM
+mongodb-pv   ...   Retain           Released   default/mongodb-pvc
+The reason lies in the fact that the volume has already been used and 
+might contain data that should be erased before someone else can claim 
+the volume. This is also the reason why the status of the volume is
+ Released instead of Available and why the claim name is still shown 
+ on the persistent volume, as this helps the cluster administrator to 
+ know if the data can be safely deleted.
+//从头开始部署，PersistentVolume->持久卷声明->pod
+To make the volume available again, you must delete and recreate the
+PersistentVolume object.
+With a pre-provisioned persistent volume like the one at hand,
+ deleting the object is equivalent to deleting a data pointer. 
+ The PersistentVolume object only points to a GCE Persistent 
+ Disk where the data is actually stored. If you delete and recreate
+ the object, you end up with a new pointer to the same data.
+
+//设定持久卷的回收策略
+.spec.persistentVolumeReclaimPolicy within the PersistentVolume object.
+Retain：默认的策略，admin手动回收
+Delete：用于动态提供卷的技术，删除底层的卷
+Recycle：已废弃
+If a persistent volume is Released and you subsequently change 
+its reclaim policy from Retain to Delete, the PersistentVolume 
+object and the underlying storage will be deleted. However, if 
+you delete the object manually, the underlying storage remains intact.
+
+//单独删除pvc时，pvc处于Terminating状态，k8s无响应；
+//所以，当删除所有pods后，才删除pvc,最后是pv
+
+
+//持久卷的动态提供 
+8.3  Dynamic provisioning of persistent volumes
+Listing storage classes
+The storage classes available in the cluster are represented by
+StorageClass API objects. You can list them with the kubectl get command:
+$ kubectl get sc
+NAME                 PROVISIONER             RECLAIMPOLICY   ...
+standard (default)   rancher.io/local-path   Delete          ...
+
+In many clusters, as in the example above, only one storage class called 
+standard is configured. It’s also marked as the default, which means that this
+is the class that is used to provision the persistent volume when you omit the 
+storageClassName field in your persistent volume claim definition.
+$ kubectl get sc standard -o yaml //查看standard信息
+//细节问题
+Remember that omitting the storageClassName field causes the default 
+storage class to be used, whereas explicitly setting the field to "" 
+disables dynamic provisioning and causes an existing volume to be selected 
+and bound to the claim.
+
+//create a PersistentVolumeClaim object with the storageClassName field set 
+//to standard or with the field omitted altogether.
+//未设定storageClassName，默认是standard
+Listing 8.8 A minimal PVC definition using the default storage class
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc-default
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+//卷绑定模式
+Immediate：一旦创建claim，就要知道volume在何处；Because the consumer of the
+claim is unknown at this point, this mode is only applicable to volumes
+that are can be accessed from any cluster node.
+WaitForFirstConsumer：创建pod后就有消费者了，从而绑定了； The volume is provisioned and bound to the claim when the first pod that
+uses this claim is created. This mode is used for topology-constrained
+volume types.
+
+The system behaves this way because of how the storage class you’re using is configured. You
+may remember that its YAML definition contained a field called volumeBindingMode that was set to
+WaitForFirstConsumer. This mode causes the system to wait until the first pod (the consumer of
+the claim) exists before binding the claim. The volume is only provisioned then and not earlier.
+Some types of volumes require such behaviour, as the system needs to know where the pod is
+scheduled before it can provision the volume. This is the case with provisioners that create nodelocal
+volumes, such as the one you find in clusters created with the kind tool (you may remember
+that the provisioner referenced in the storage class was rancher.io/local-path).
+
+//列出磁盘类型
+gcloud compute disk-types list	
+As you can see, the annotation marks this storage class as default. If you create a persistent
+volume claim in GKE that references either this class or none at all, the provisioner
+kubernetes.io/gce-pd is called to create the volume. The parameter type: pd-standard is
+passed to the provisioner when the volume is to be provisioned. This tells the provisioner what type
+of GCE Persistent Disk to create
+
+//defines a StorageClass object，定义一个sc
+Listing 8.10 A custom storage class definition: storageclass-fast-gcepd.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-ssd
+  
+Kubernetes does not support changing the storage class name in an existing claim
+
+//resize pvc请求的大小：修改yaml文件，k apply
+If you use dynamic provisioning, you can generally change the size of a persistent
+volume simply by requesting a larger capacity in the associated claim.
+To modify the claim, either edit the manifest file or create a copy and then edit it.
+Set the spec.resources.requests.storage field to 10Gi as shown in the following listing
+Listing 8.12 Requesting a larger volume
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc-default
+spec:                       
+  resources:
+    requests:
+      storage: 10Gi
+  accessModes:              
+    - ReadWriteOnce
+Ensure that the name matches the name of the existing claim.
+//在sc文件中设置这个class的卷能否扩展
+When the cluster administrator creates a storage class, they can use the spec.
+allowVolumeExpansion field to indicate whether volumes of this class can be resized
+
+//动态提供持久卷的生命周期
+//创建pvc后，自动创建pv和底层卷 
+Unlike statically provisioned persistent volumes, the sequence of events when using 
+dynamic provisioning begins with the creation of the PersistentVolumeClaim object. 
+As soon as one such  object appears, Kubernetes instructs the dynamic provisioner configured in the storage class
+referenced in this claim to provision a volume for it. The provisioner creates both the underlying
+storage, typically through the cloud provider’s API, and the PersistentVolume object that references
+the underlying volume.
+The underlying volume is typically provisioned asynchronously. When the process completes,
+the status of the PersistentVolume object changes to Available; at this point, the volume is bound
+to the claim.
+Users can then deploy pods that refer to the claim to gain access to the underlying storage
+volume. When the volume is no longer needed, the user deletes the claim. This typically triggers
+the deletion of both the PersistentVolume object and the underlying storage volume.
+
+//节点本地持久卷
+8.4Node-local persistent volumes
+You might remember that when you add a hostPath volume to a pod, the data that 
+the pod sees depends on which node the pod is scheduled to. In other words, if 
+the pod is deleted and recreated, it might end up on another node and no longer 
+have access to the same data.
+//pod总被调度到同一个node, 因为pod引用的卷只有特定节点能访问 
+If you use a local persistent volume instead, this problem is resolved. The 
+Kubernetes scheduler ensures that the pod is always scheduled on the node to 
+which the local volume is attached.
+
+//创建一个本地sc
+Listing 8.13 Defining the local storage class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local
+provisioner: kubernetes.io/no-provisioner //手动创建卷
+volumeBindingMode: WaitForFirstConsumer  //延迟卷绑定直到pod调度 
+Because this storage class represents locally attached volumes that can only 
+be accessed within the nodes to which they are physically connected, the 
+volumeBindingMode is set to WaitForFirstConsumer, so the binding of the claim 
+is delayed until the pod is scheduled.
+//加载ssd
+$ docker exec kind-worker mkdir /mnt/ssd1
+//创建一个持久卷
+Listing 8.14 Defining a local persistent volume
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-ssd-on-kind-worker
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: local
+  capacity:
+    storage: 10Gi
+  local:
+    path: /mnt/ssd1                    //local卷，加载在节点的文件系统的指定路径
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - minikube
+
+//创建pod
+Listing 8.15 Pod using a locally attached persistent volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mongodb-local
+spec:
+  volumes:
+  - name: mongodb-data
+    persistentVolumeClaim:
+      claimName: mongodb-pvc-local
+  containers:
+  - image: mongo
+    name: mongodb
+    volumeMounts:
+    - name: mongodb-data
+      mountPath: /data/db
+//创建持久卷claim
+Listing 8.16 Persistent volume claim using the local storage class
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc-local
+spec:
+  storageClassName: local
+  resources:
+    requests:
+      storage: 1Gi
+  accessModes:
+    - ReadWriteOnce	  
+
+
+

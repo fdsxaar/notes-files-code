@@ -15,7 +15,7 @@
  git config user.name
  git config --global core.editor emacs #配备文本编辑器
 
- 4.git help <verb>/git <verb> --help/man git-<verb>
+4.git help <verb>/git <verb> --help/man git-<verb>
    git help config /git config --help /man git-config
    irc.freenode.net(失效)，https://freenode.net/
 
@@ -174,7 +174,7 @@ C3 Git分支
     1.新建分支，git branch 命令仅仅 创建 一个新分支，并不会自动切换到新分支中去
         git branch -b <branch> #创建并切换到分支branch，等价于2条命令，git branch <branch> -> git checkout <branch>
         切换分支前，最好提交所有修改
-
+    
     2.分支的合并 git merge <iss53> 
       合并提交，有不止一个父提交
       git branch -d <branch> #删除分支 

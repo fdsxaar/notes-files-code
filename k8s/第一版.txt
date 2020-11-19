@@ -1,0 +1,1437 @@
+k8s in action 1st edition 
+
+第七章 
+7.3 为容器设置环境变量
+//覆盖参数
+kind: Pod
+spec:
+  containers:
+  - image: some/image
+    command: ["/bin/command"]
+    args: ["arg1", "arg2", "arg3"]
+
+//在器级别提供环境变量参数
+kind: Pod
+spec:
+ containers:
+ - image: luksa/fortune:env
+   env:
+   - name: INTERVAL
+     value: "30"
+   name: html-generator
+...
+//引用环境变量
+env:
+- name: FIRST_VAR
+  value: "foo"
+- name: SECOND_VAR
+  value: "$(FIRST_VAR)bar"
+
+Con句Map 中的键名必须是一个合法的DNS 子域，仅包含数字字母、破
+折号、下画线以及园点。首位的圆，点符号是可选的
+//从字面量创建congimap
+$ kubectl create configmap fortune-config --from-literal=sleep-interval=25
+configmap "fortune-config" created
+$ kubectl create configmap myconfigmap
+➥   --from-literal=foo=bar --from-literal=bar=baz --from-literal=one=two
+$ kubectl create -f fortune-config.yaml
+
+//从文件创建configmap，并将文件内容单独存储为ConfigMap 中的条目
+$ kubectl create configmap my-config --from-file=customkey=config-file.conf
+//从文件夹创建configmap, 每个文件是一个条目 
+$ kubectl create configmap my-config --from-file=/path/to/dir #没有/
+
+7.4.3 给容器传递ConfigMap 条目作为环境变量
+//给容器的环境变量传递ConfigMap 的条目
+//可以标记对ConfigMap 的引用是可选的（设直configMapKeyRef .
+//optional: true ）。这样，即使ConfigMap 不存在，容器也能正常启动。
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fortune-env-from-configmap
+spec:
+  containers:
+  - image: luksa/fortune:env
+    env:
+    - name: INTERVAL             //环境变量
+      valueFrom:
+        configMapKeyRef:
+          name: fortune-config
+          key: sleep-interval    //为变量设定值 
+...
+
+//通过envFrom属性字段将所有条目暴露作为环境变量
+spec:
+  containers:
+  - image: some-image
+    envFrom:
+    - prefix: CONFIG_           //为所有条目添加前缀
+      configMapRef:
+        name: my-config-map
+...
+config_foo-bar不是合法的环境变量名 
+
+//使用条目作为参数值
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fortune-args-from-configmap
+spec:
+  containers:
+  - image: luksa/fortune:args
+    env:
+    - name: INTERVAL            //定义环境变量 
+      valueFrom:
+        configMapKeyRef:
+          name: fortune-config
+          key: sleep-interval  //给变量赋值
+    args: ["$(INTERVAL)"]      //在参数中引用环境变量 
+...
+
+//configMap 卷会将Co nfigMap 中的每个条目均暴露成一个文件
+//副作用：挂载引用configMap的卷会隐藏/etc/nginx/conf.d目录下的所有文件 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fortune-configmap-volume
+spec:
+  containers:
+  - image: nginx:alpine
+    name: web-server
+    volumeMounts:
+    ...
+    - name: config                          //挂载配置卷
+      mountPath: /etc/nginx/conf.d
+      readOnly: true
+    ...
+  volumes:
+  ...
+  - name: config                            //挂载卷引用configMap
+    configMap:                              
+      name: fortune-config
+  ...
+
+kubectl get configmap fortune-config -o yaml //考察configMap 
+$ kubectl get configmap fortune-config -o yaml
+apiVersion: v1
+data:
+  my-nginx-config.conf: |                    #管道符表示后续条目是多行字面量
+    server {
+      listen              80;
+      server_name         www.kubia-example.com;
+
+      gzip on;
+      gzip_types text/plain application/xml;
+
+      location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+      }
+    }
+  sleep-interval: |
+    25
+kind: ConfigMap
+...
+
+/卷内暴露指定的ConfigMap条目
+//通过卷的items 属性能够指定哪些条目会被暴露作为configMap卷中的文件
+volumes:
+  - name: config
+    configMap:
+      name: fortune-config
+      items:
+      - key: my-nginx-config.conf
+        path: gzip.conf                //指定对应的文件名
+		
+//volumeMount额外的subPath字段可以被用作挂载卷中的某个
+//独立文件或者是文件夹，无须挂载完整卷
+spec:
+  containers:
+  - image: some/image
+    volumeMounts:
+    - name: myvolume
+      mountPath: /etc/someconfig.conf
+      subPath: myconfig.conf              //仅挂载单个文件 
+	  
+	  
+//设置权限
+volumes:
+  - name: config
+    configMap:
+      name: fortune-config
+      defaultMode: "6600"   //设置
+
+//ConfigMap被更新之后， 卷中引用它的所有文件也会相应更新， 进程发现文件
+//被改变之后进行重载	
+kubectl edit configmap fortune-config //热更新
+
+//Secret也是资源对象;每个pod挂载了包含三个文件的secret卷
+kubectl get secrets
+kubectl describe secrets
+
+//创建一个Secret
+$ kubectl create secret generic fortune-https --from-file=https.key
+➥   --from-file=https.cert --from-file=foo
+secret "fortune-https" created
+
+Base64 encoding allows you to include the binary data in YAML or JSON, 
+which are both plain-text formats
+kind: Secret
+apiVersion: v1
+stringData:
+  foo: plain text           //写入纯文本；stringData的字段不可读，编码后显示在data中
+data:
+  https.cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCekNDQ...
+  https.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcE...
+
+//Secret 卷存储于内存
+$ kubectl exec fortune-https -c web-server -- mount | grep certs
+tmpfs on /etc/nginx/certs type tmpfs (ro,relatime)
+
+ apiVersion: v1
+kind: Pod
+metadata:
+  name: fortune-https
+spec:
+  containers:
+  - image: luksa/fortune:env
+    name: html-generator
+    env:
+    - name: INTERVAL
+      valueFrom:
+        configMapKeyRef:
+          name: fortune-config
+          key: sleep-interval
+    volumeMounts:
+    - name: html
+      mountPath: /var/htdocs
+  - image: nginx:alpine
+    name: web-server
+    volumeMounts:
+    - name: html
+      mountPath: /usr/share/nginx/html
+      readOnly: true
+    - name: config
+      mountPath: /etc/nginx/conf.d
+      readOnly: true
+    - name: certs
+      mountPath: /etc/nginx/certs/   //挂载至此
+      readOnly: true
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+  volumes:
+  - name: html
+    emptyDir: {}
+  - name: config
+    configMap:
+      name: fortune-config
+      items:
+      - key: my-nginx-config.conf
+        path: https.conf
+  - name: certs                    //要挂载的卷
+    secret:
+      secretName: fortune-https
+
+//通过环境变量暴露Secret 条目
+env:
+    - name: FOO_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: fortune-https
+          key: foo
+Kubernetes 允许通过环境变量暴露Secret，然而此特性的使用往往不是一个好
+主意。应用程序通常会在错误报告时转储环境变量，或者是启动时打印在应用日志
+中，无意中暴露了Secret 信息。另外，子进程会继承父进程的所有环境变量，如果
+是通过第三方二进制程序启动应用，你并不知道它使用敏感数据做了什么
+
+运行一个镜像来源于私有仓库的pod 时，需要做以下两件事：
+．创建包含Docker 镜像仓库证书的Secre t 。
+• pod 定义中的imagePullSecrets 宇段引用该Secret 。
+$ kubectl create secret docker-registry mydockerhubsecret \
+  --docker-username=myusername --docker-password=mypassword \
+  --docker-email=my.email@provider.com
+
+为了Kub em etes 从私有镜像仓库拉取镜像时能够使用Secret ，需要在pod 定义
+中指定docker - registry Secret 的名称
+apiVersion: v1
+kind: Pod
+metadata:
+  name: private-pod
+spec:
+  imagePullSecrets:
+  - name: mydockerhubsecret
+  containers:
+  - image: username/private:tag
+    name: main
+
+==========================Chapter 8=================
+Accessing pod metadata and other resources from applications
+//通过环境变量暴露元数据
+apiVersion: v1
+kind: Pod
+metadata:
+  name: downward
+spec:
+  containers:
+  - name: main
+    image: busybox
+    command: ["sleep", "9999999"]
+    resources:
+      requests:
+        cpu: 15m
+        memory: 100Ki
+      limits:
+        cpu: 100m
+        memory: 4Mi
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: SERVICE_ACCOUNT
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.serviceAccountName
+    - name: CONTAINER_CPU_REQUEST_MILLICORES
+      valueFrom:
+        resourceFieldRef:
+          resource: requests.cpu
+          divisor: 1m
+    - name: CONTAINER_MEMORY_LIMIT_KIBIBYTES
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.memory
+          divisor: 1Ki
+kubectl exec downward env //查看环境变量
+
+
+//通过downwardAPI卷暴露元数据
+//必须使用downwardAPI卷来暴露pod标签或注解
+apiVersion: v1
+kind: Pod
+metadata:
+  name: downward
+  labels:
+    foo: bar
+  annotations:
+    key1: value1
+    key2: |
+      multi
+      line
+      value
+spec:
+  containers:
+  - name: main
+    image: busybox
+    command: ["sleep", "9999999"]
+    resources:
+      requests:
+        cpu: 15m                 //m=milli-core，千分之一核，1代表整个核
+        memory: 100Ki
+      limits:
+        cpu: 100m
+        memory: 4Mi
+    volumeMounts:
+    - name: downward
+      mountPath: /etc/downward
+  volumes:
+  - name: downward
+    downwardAPI:
+      items:
+      - path: "podName"
+        fieldRef:
+          fieldPath: metadata.name      //挂载到文件/etc/downward/podName,内容为metadata.name
+      - path: "podNamespace"            //的域，是键值对
+        fieldRef:
+          fieldPath: metadata.namespace
+      - path: "labels"
+
+        fieldRef:
+
+          fieldPath: metadata.labels
+
+      - path: "annotations"
+        fieldRef:
+          fieldPath: metadata.annotations
+      - path: "containerCpuRequestMilliCores"
+        resourceFieldRef:
+          containerName: main
+          resource: requests.cpu
+          divisor: 1m                       //除数，用上面的单位除以这个，15个单位的核
+      - path: "containerMemoryLimitBytes"
+        resourceFieldRef:
+          containerName: main               //容器级元数据，指定容器名 
+          resource: limits.memory
+          divisor: 1ki
+kubect1 exec downward ls -lL /etc/downward		  
+与configMAp和secret卷一样，可以通过pod定义中downward.AP工
+卷的defaultMode属性来改变文件的访问权限设置。
+//自动更新吗
+当标签和注解被修改后，Kubemetes会更新存有相关信息的文件
+使用卷的方式，可以传递一个容器的资源字段到另一个容器，因为卷的定义
+是基于pod，同一个pod的容器可以沟通
+
+$ kubect1 proxy //访问proxy与api交互
+
+从pod内部与API服务器进行交互,令牌、密钥等来访问服务器API
+
+//最简单的方式，但是运行失败 
+通过ambassador 容器简化与API 服务器的交互
+
+//各种语言的库、包
+使用客户端库与API服务器交互
+
+
+
+-------------------------第九章----------------------------
+Chapter 9. Deployments: updating applications declaratively
+有以下两种方法可以更新所有pod:
+• 直接删除所有现有的pod, 然后创建新的pod。
+• 也可以先创建新的pod, 并等待它们成功运行之后， 再删除旧的pod。可以
+先创建所有新的pod, 然后一次性删除所有旧的pod, 或者按顺序创建新的
+pod, 然后逐渐删除旧的pod。
+
+在使用Deployment 时， 实际的pod
+是由Deployment 的Replicaset 创建和管理的， 而不是由Deployment 直接创建和管
+理的
+k create -f kubia-deployment-v1.yaml --record //--record 记录历史版本号
+k rollout status deployment kubia //查看部署状态 
+k get replicasets.apps //查看deployment的哈希值
+
+默认策略是执行滚动更新（策略名为RollingUpdate)。另一种策略为Recreate,
+它会一次性删除所有旧版本的pod, 然后创建新的pod,
+kubectl patch deployment kubia -p '{"spec": {"minReadySeconds": 10}}' //更新一个值 
+//重新设定镜像，触发滚动升级
+kubectl set image deployment kubia nodejs=luksa/kubia:v2
+
+如果Deployment 中的pod 模板引用了一个ConfigMap (或Secret), 那么
+更改ConfigMap 资原本身将不会触发升级操作。如果真的需要修改应用程序的配置
+并想触发更新的话， 可以通过创建一个新的ConfigMap 并修改pod 模板引用新的
+ConfigMap。
+
+kubectl get rs //列出资源
+
+kubectl rollout status deployment kubia
+
+//升级到错误版本
+kubectl set image deployment kubia nodejs=luksa/kubia:v3
+//回滚一次升级
+k rollout undo deployment kubia 
+//回滚历史；与教材有出入，只显示v1版本，未显示v2 v3 版本的历史
+k rollout history deployment kubia
+//通过指定Deployment 的revisionHistoryLimit 属性来限制历史版本数量。默认值是2
+$ kubectl rollout undo deployment kubia - -to-revision=l //回滚到特定版本 
+ 
+ spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 1             //pod的总数目不能超过这个数目
+      maxUnavailable: 0       //可用的数目不能少于期望数目减去maxUnavailable
+    type: RollingUpdate
+
+k rollout pause deployment kubia 
+
+//使用kubectl apply -f 来升级Deployment
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: kubia
+spec:
+  replicas: 3
+  minReadySeconds: 10       //pod从状态ready-->available需要的时间/持续时间 
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      name: kubia
+      labels:
+        app: kubia
+    spec:
+      containers:
+      - image: luksa/kubia:v3
+        name: nodejs
+        readinessProbe:
+          periodSeconds: 1
+          httpGet:
+            path: /
+            port: 8080
+
+//当一个pod的所有容器的readiness探测返回成功时，pod处于ready状态，在被
+//视为available之前，ready状态之后，还要等待minReadySeconds秒数；
+//如果readiness探测失败，新版本回滚就会被阻塞 
+The minReadySeconds property specifies how long a newly created pod should 
+be ready before the pod is treated as available. Until the pod is available, 
+the rollout process will not continue (remember the maxUnavailable property?). 
+A pod is ready when readiness probes of all its containers return a success. 
+If a new pod isn’t functioning properly and its readiness probe starts failing 
+before minReadySeconds have passed, the rollout of the new version will effectively 
+be blocked.
+
+//配置progressDeadlineSeconds属性，超过这个值后，就会认为Deployment失败
+The time after which the Deployment is considered failed is configurable 
+through the progressDeadlineSeconds property in the Deployment spec.
+//yaml文件的标签为kubia,可以重用之前创建的service kubia,该service 的SELECTOR 为app=kubia
+labels:
+   app: kubia
+   
+
+-----------------------Chapter10----------------------------
+//pod模板引用特定的持久卷声明，所有的副本将会使用相同的持久卷声明，共享底层的持久卷
+Chapter 10. StatefulSets: deploying replicated stateful application
+ReplicaSets create multiple pod replicas from a single pod template. 
+These replicas don’t differ from each other, apart from their name and IP address. 
+If the pod template includes a volume, which refers to a specific PersistentVolumeClaim, 
+all replicas of the ReplicaSet will use the exact same PersistentVolumeClaim and 
+therefore the same PersistentVolume bound by the claim.
+
+//运行每个实例都有单独存储的多副本
+但是在Kubemetes 中， 每次重新调度一个
+pod, 这个新的pod就有一个新的主机名和IP地址， 这样就要求当集群中任何一个
+成员被重新调度后， 整个应用集群都需要重新配置
+
+Statefulset创建的pod副
+本并不是完全一样的。每个pod都可以拥有一组独立的数据卷（持久化状态）
+
+//发现服务 
+For this reason, a StatefulSet requires you to create a corresponding governing 
+headless Service that’s used to provide the actual network identity to each pod. 
+Through this Service, each pod gets its own DNS entry, so its peers and possibly 
+other clients in the cluster can address the pod by its hostname. For example, if 
+the governing Service belongs to the default namespace and is called foo, and one 
+of the pods is called A-0, you can reach the pod through its fully qualified domain 
+name, which is a-0.foo.default.svc.cluster.local. You can’t do that with pods managed 
+by a ReplicaSet.
+
+通过Statefulset 部署应用
+为了部署你的应用， 需要创建两个（或三个） 不同类型的对象：
+• 存储你数据文件的持久卷（当集群不支持持久卷的动态供应时， 需要手动创
+建）
+• Statefulset必需的一个控制Service
+• Statefulset本身
+
+//伸缩statfulset
+缩容一个Statefulset 将会最先删除最高索引值
+的实例，所以缩容的结果是可预知的。
+
+因为Statfulset 缩容任何时候只会操作一个pod 实例，所以有状态应用的缩容
+不会很迅速;
+StatefulSet在有实例不健康的情况下是不允许做缩容操作的。若
+一个实例是不健康的，而这时再缩容一个实例的话，也就意味着你实际上同时失去
+了两个集群成员。
+
+扩容StatefulSet 增加一个副本数时， 会创建两个或更多的API 对象（一个pod
+和与之关联的一个或多个持久卷声明） 。但是对缩容来说， 则只会删除一个pod ， 而
+遗留下之前创建的声明;基于这个原因， 当你需要释放特定
+的持久卷时， 需要手动删除对应的持久卷声明。
+因为缩容Statefulset 时会保留持久卷声明， 所以在随后的扩容操作中， 新的pod
+实例会使用绑定在持久卷上的相同声明和其上的数据（如图10.9 所示）。当你因为
+误操作而缩容一个Statefulset 后，可以做一次扩容来弥补自己的过失， 新的pod 实
+例会运行到与之前完全一致的状态（名字也是一样的〉。
+
+//创建StatefulSet 
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: kubia
+spec:
+  serviceName: kubia
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: kubia
+    spec:
+      containers:
+      - name: kubia
+        image: luksa/kubia-pet
+        ports:
+        - name: http
+          containerPort: 8080
+        volumeMounts:
+        - name: data
+          mountPath: /var/data
+  volumeClaimTemplates:           #卷声明模板为每个pod创建一个PersistentVolumeClaim 
+  - metadata:                     #StatefulSet为每个PersistentVolumeClaim绑定一个卷 
+      name: data
+    spec:
+      resources:
+        requests:
+          storage: 1Mi
+      accessModes:
+      - ReadWriteOnce
+	  
+//用于DNS SRV
+apiVersion: v1
+kind: Service
+metadata:              
+  name: kubia-2       
+spec:
+  clusterIP: None       #None代表headless服务
+  selector:
+    app: kubia          #标签为kubia的pod都属于这个service
+  ports:
+  - name: http
+    port: 80
+NAME           TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+kubia          ClusterIP   None           <none>        80/TCP    50m
+//先要创建一个headless service 
+$ kubectl run -it srvlookup --image=tutum/dnsutils --rm --restart=Never -- dig SRV kubia.default.svc.cluster.local
+//在应用程序内调用函数访问集群内的pod
+dns.resolveSrv();
+
+
+
+
+//使用端口转发， 
+k port-forward kubia-0  8888:8080
+
+缩容一个Statefulset, 然后在完成后再扩容它， 与删除一个pod后让Statefulset
+立马重新创建它的表现是没有区别的;
+当缩容超过一个实例的时候， 会首先删除拥有最高索引
+值的pod。只有当这个pod被完全终止后， 才会开始删除拥有次高索引值的pod;
+
+//通过API服务器与pod通信
+<apiServerHost>:<port>/api/vl/namespaces/default/pods/kubia-0/proxy/<path>
+$ kubectl proxy
+$curl localhost:8001/api/v1/namespaces/default/pods/kubia-0/proxy/
+$ curl -X POST -d "Hey there! This greeting was submitted to kubia-0." localhost:8001/api/v1/namespaces/default/pods/kubia-0/proxy/
+Data stored on pod kubia-0
+$ curl localhost:8001/api/v1/namespaces/default/pods/kubia-1/proxy/
+
+//不是外部暴露的Service (它是一个常规的ClusterIPService, 不是一
+//个NodePort或LoadBalancer typeService), 只能在你的集群内部访问它
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubia-public
+spec:
+  selector:
+    app: kubia
+  ports:
+  - port: 80
+    targetPort: 8080
+NAME           TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+kubia-public   ClusterIP   10.124.0.194   <none>        80/TCP    76m
+//通过API服务器访问集群内部的服务
+/api/v1/namespaces/<namespace>/services/<service name>/proxy/<path>
+$k proxy
+$ curl localhost:8001/api/v1/namespaces/default/services/kubia-public/proxy/ #随机访问pod
+
+---更新Statefulset---
+$ kubectl edit statefulsetkubia //k8s自动应用新的模板更新pod
+
+$ gcloud compute ssh gke-kubia-default-pool-32a2cac8-m0g1
+$ sudo ifconfig eth0 down //关闭节点网络适配器 
+当一个节点状态转变为Unknown时，除非该节点的kubelet报告节点的pod已经停用，
+否则k8s不会删除该节点上的pod;可以强制删除
+$ kubectl delete po kubia-0 --force --grace-period 0
+//恢复节点 
+$ gcloud compute instances reset <node name>
+
+
+-----------------------------C11-----------------------------------------
+Chapter 11. Understanding Kubernetes internals
+$ kubect1 get componentstatuses //查看组件状态 
+尽管工作节点上的组件都需要运行在同一个节点上， 控制平面的组件可以被简
+单地分割在多台服务器上。为了保证高可用性， 控制平面的每个组件可以有多个实
+例。etcd和API服务器的多个实例可以同时并行工作， 但是， 调度器和控制器管理
+器在给定时间内只能有一个实例起作用，其他实例处于待命模式。
+
+//通过-o custom-columns选项自定义展示的列以及- -sort -by对资源列表进行排序
+kubectl get po -o custom-columns=POD:metadata.name,NODE:spec.nodeName --sort-by spec.nodeName -n kube-system
+
+//etcd;乐观并发控制
+//对照Java的非阻塞算法 
+所有的Kubernetes 包含一个metadata.resourceVersion宇段，当更
+新对象时，客户端需要返回该值到API服务器。如果版本值与etcd中存储的不
+匹配，API服务器会拒绝该更新
+
+pod按命名空间存储
+//监听资源
+kubect1 get pods --watch
+
+可以在集群中运行多个调度器而非单个。然后， 对每一个pod, 可以通过在pod
+特性中设置schedulerName 属性指定调度器来调度特定的pod。
+未设置该属性的pod 由默认调度器调度， 因此其schedulerName 被设置为
+default-scheduler 。其他设置了该属性的pod 会被默认调度器忽略掉， 它们要
+么是手动调用， 要么被监听这类pod 的调度器调用。
+
+控制器源代码
+
+//The PersistentVolume controller
+When a PersistentVolumeClaim pops up, the controller finds the best 
+match for the claim by selecting the smallest PersistentVolume with 
+the access mode matching the one requested in the claim and the declared 
+capacity above the capacity requested in the claim. It does this by keeping 
+an ordered list of PersistentVolumes for each access mode by ascending 
+capacity and returning the first volume from the list.
+
+//kubelet探测容器的是否存活，重启，终结容器，报告给API服务器 
+The Kubelet is also the component that runs the container liveness probes, 
+restarting containers when the probes fail. Lastly, it terminates containers 
+when their Pod is deleted from the API server and notifies the server that the 
+pod has terminated.
+//kubelet可以以pods形式运行控制面板组件的容器化版本；DaemonSet
+run the containerized versions of the Control Plane components as pods
+
+如何部署插件
+通过提交YAML清单文件到API服务器（本书的通用做法），这些组件会成为
+插件并作为pod部署。有些组件是通过Deployment资源或者ReplicationController
+资源部署的，有些是通过DaemonSet
+kubect1 get rc -n kube-system
+$ kubect1 get deploy -n kube-system
+
+//DNS服务 
+The DNS server pod is exposed through the kube-dns service, allowing 
+the pod to be moved around the cluster, like any other pod. The service’s 
+IP address is specified as the nameserver in the /etc/resolv.conf file inside 
+every container deployed in the cluster. The kube-dns pod uses the API server’s 
+watch mechanism to observe changes to Services and Endpoints and updates its 
+DNS records with every change, allowing its clients to always get (fairly) 
+up-to-date DNS information.
+
+//--watch 选项观察事件 
+$ kubectl get events --watch
+//运行一个容器，观察基础容器；
+//每个pod都有一个基础容器，保存命名空间，供pod里的其他容器使用
+kubectl run nginx --image=nginx
+gcloud compute ssh <node name>
+minkube ssh 
+docker ps
+
+网络是由系统管理员或者ContainerNetwork Interface (CNI)插件建立的，
+而非Kubemetes本身。
+
+//基础设施容器创建了一个veth对, 一个接口在主机命名空间, 一个在容器命名空间 
+Before the infrastructure container is started, a virtual Ethernet 
+interface pair (a veth pair) is created for the container. One interface 
+of the pair remains in the host’s namespace (you’ll see it listed as 
+vethXXX when you run ifconfig on the node), whereas the other is moved 
+into the container’s network namespace and renamed eth0. The two virtual 
+interfaces are like two ends of a pipe (or like two network devices 
+connected by an Ethernet cable)
+
+//主机命名空间的接口附着到容器运行时的网络桥;
+//从容器命名空间eth0接口接受到的信息会从网络桥出来
+The interface in the host’s network namespace is attached to a network 
+bridge that the container runtime is configured to use. The eth0 interface 
+in the container is assigned an IP address from the bridge’s address range. 
+Anything that an application running inside the container sends to the eth0 
+network interface (the one in the container’s namespace), comes out at the 
+other veth interface in the host’s namespace and is sent to the bridge. 
+This means it can be received by any network interface that’s connected to the bridge.
+//在节点上的所有pod通过相同的桥沟通 
+If pod A sends a network packet to pod B, the packet first goes through 
+pod A’s veth pair to the bridge and then through pod B’s veth pair. All 
+containers on a node are connected to the same bridge, which means they 
+can all communicate with each other. But to enable communication between 
+containers running on different nodes, the bridges on those nodes need to 
+be connected somehow
+
+//网桥连接到节点上的物理适配器，如此，实现和别节点通信，但是节点要连接到相同
+//网关，之间没有路由；因为pod Ip是私有的，路由会扔包  
+有多种连接不同节点上的网桥的方式。可以通过overlay或underlay网络， 或
+者常规的三层路由
+
+跨整个集群的pod 的IP地址必须是唯一的， 所以跨节点的网桥必须使用非重叠
+地址段， 防止不同节点上的pod拿到同一个IP
+
+SDN可以让节点忽略底层网络拓扑，
+Container Network Interface (CNI)
+Calico
+Flannel
+Romana
+Weave Net
+And others
+
+We’ve learned that each Service gets its own stable IP address and port. 
+Clients (usually pods) use the service by connecting to this IP address 
+and port. The IP address is virtual—it’s not assigned to any network 
+interfaces and is never listed as either the source or the destination 
+IP address in a network packet when the packet leaves the node. A key 
+detail of Services is that they consist of an IP and port pair (or multiple 
+IP and port pairs in the case of multi-port Services), so the service IP by 
+itself doesn’t represent anything. That’s why you can’t ping them.
+
+//kube-proxy拦截报文，重定向到pod
+When a service is created in the API server, the virtual IP address is 
+assigned to it immediately. Soon afterward, the API server notifies all 
+kube-proxy agents running on the worker nodes that a new Service has been 
+created. Then, each kube-proxy makes that service addressable on the node 
+it’s running on. It does this by setting up a few iptables rules, which 
+make sure each packet destined for the service IP/port pair is intercepted 
+and its destination address modified, so the packet is redirected to one 
+of the pods backing the service.
+//Endpoints与service紧密相关
+An Endpoints object holds the IP/port pairs of all the pods that back 
+the service (an IP/port pair can also point to something other than a pod). 
+That’s why the kube-proxy must also watch all Endpoints objects
+
+//节点间的领导选举 
+https://github.com/kubernetes-retired/contrib/tree/master/election
+
+控制面板中的组件也可以使用领导选举机制;谁先到达就成为领导者 
+kubectl get endpoints kube-scheduler -n kube-system -o yaml
+
+
+----------------------C12-------------------------------
+
+Chapter 12. Securing the Kubernetes API server
+每个pod都与一个ServiceAccount相关
+联，它代表了运行在pod中应用程序的身份证明。token文件持有ServiceAccount
+的认证token。应用程序使用这个token连接API服务器时，身份认证插件会对
+ServiceAccount进行身份认证，并将Set-viceAccount的用户名传回API服务器内部。
+ServiceAccount用户名的格式像下面这样：
+system:serviceaccount:<namespace>:<service accoun七name>
+API服务器将这个用户名传给己配置好的授权插件，这决定该应用程序所尝试
+执行的操作是否被ServiceAccount允许执行。
+erviceAccount只不过是一种运行在pod中的应用程序和API服务器身份认证
+的一种方式
+#查看ServiceAccount列表
+$ kubectl get sa
+
+每个pod都与一个ServiceAccount相关联， 但
+是多个pod可以使用同一个ServiceAccount；pod只能
+使用同一个命名空间中的ServiceAccount。
+
+在pod 的manifest 文件中， 可以用指定账户名称的方式将一个ServiceAccount
+赋值给一个pod。如果不显式地指定ServiceAccount 的账户名称， pod 会使用在这个
+命名空间中的默认ServiceAccount。
+可以通过将不同的ServiceAccount 赋值给pod 来控制每个pod 可以访问的资源。
+当API 服务器接收到一个带有认证token 的请求时， 服务器会用这个token 来验证
+发送请求的客户端所关联的ServiceAccount 是否允许执行请求的操作。API 服务器
+通过管理员配置好的系统级别认证插件来获取这些信息。其中一个现成的授权插件
+是基千角色控制的插件(RBAC)
+
+创建 serviceaccount
+$ kubectl describe sa foo
+$ kubectl describe sa foo
+Name:               foo
+Namespace:          default
+Labels:             <none>
+
+Image pull secrets: <none>        #自动添加到使用这个sa的pod中
+
+Mountable secrets:  foo-token-qzq7j #如果mountable Secrets是强制的，则使用这个sa的pod只能
+                                    #挂载这些secrets
+Tokens:             foo-token-qzq7j #第一个被挂载进容器 
+
+注解 kubernetes.io/enforce-mountable-secrets= "true" 表明，
+使用这个sa的pod只能挂载sa的密钥 
+#查看token;JSON Web Tokens (JWT)
+$ kubectl describe secret foo-token-qzq7j
+
+//将image Pull Secrets添加到每个使用这个sa的pod中 
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-service-account
+imagePullSecrets:
+- name: my-dockerhub-secret
+
+kubectl exec -it curl-custom-sa -c main cat /var/run/secrets/kubernetes.io/serviceaccount/token
+//403错误 
+kubectl exec -it curl-custom-sa -c main -- curl localhost:8001/api/v1/pods
+//可行
+kubectl exec -it curl-custom-sa -c main -- curl localhost:8001/api/v1/
+
+／／RBAC　
+／／角色授予权限，绑定角色到具体的用户、组或ｓａ
+The RBAC authorization rules are configured through four
+resources, which can be grouped into two groups:
+Roles and ClusterRoles, which specify which verbs can be performed on which resources.
+RoleBindings and ClusterRoleBindings, which bind the above roles to specific users, 
+groups, or ServiceAccounts.
+
+
+//开启RBAC
+minikube --extra-config=apiserver.Authorization.Mode=RBAC
+//重启禁用的RBAC
+$ kubectl delete clusterrolebinding permissive-binding
+
+//创建不同命名空间的pod
+$ kubectl create ns foo
+namespace "foo" created
+$ kubectl run test --image=luksa/kubectl-proxy -n foo
+deployment "test" created
+$ kubectl create ns bar
+namespace "bar" created
+$ kubectl run test --image=luksa/kubectl-proxy -n bar
+deployment "test" created
+
+$ kubectl exec -it test -n foo -- sh
+/# curl localhost:8001/api/v1/namespaces/foo/services
+
+//角色
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: foo            
+  name: service-reader
+rules:
+- apiGroups: [""]          //service是核心apiGroup的资源，所以没有apiGroup,即为""
+  verbs: ["get", "list"]
+  resources: ["services"]  //复数 
+  
+//GKE创建roles时  
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=sgydd001@gmail.com
+$ kubectl create -f service-reader.yaml -n foo
+$ kubectl create role service-reader --verb=get --verb=list --resource=services -n bar
+role "service-reader" created
+
+//绑定角色 
+$ kubectl create rolebinding test --role=service-reader --serviceaccount=foo:default -n foo
+$查看角色绑定
+kubectl get rolebinding test -n foo -o yaml
+注意如果要绑定一个角色到一个user （用户）而不是ServiceAccount 上， 使
+用user 作为参数来指定用户名。如果要绑定角色到组，可以使用－－ group 参数。
+
+//添加其他命名空间的serviceaccount
+$ kubectl edit rolebinding test -n foo
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: bar
+  
+12.2.4 使用ClusterRole 和C l usterRoleBinding
+Cluster Role 是一种集群级资源，它允许访问没有命名空间的资源和非资源型的
+URL ，或者作为单个命名空间内部绑定的公共角色，从而避免必须在每个命名空间
+中重新定义相同的角色。
+//集群角色要用集群角色绑定 进行绑定 
+$ kubectl create clusterrole pv-reader --verb=get,list --resource=persistentvolumes
+kubectl get clusterrole pv-reader -o yaml
+$ kubectl create clusterrolebinding pv-test --clusterrole=pv-reader --serviceaccount=foo:default
+
+/ # curl localhost:8001/api/v1/persistentvolumes
+
+//允许访问非资源型的URL
+API 服务器也会对外暴露非资源型的URL 。访问这些URL 也
+必须要显式地授予权限－否则， API 服务器会拒绝客户端的请求。通常， 这个会通
+过system : discovery ClusterRole 和相同命名的ClusterRoleBinding 帮你自动完
+成，它出现在其他预定义的ClusterRoles 和ClusterRoleBindings
+$ kubectl get clusterrole system:discovery -o yaml
+//将Clusterrole绑定到所有认证过和没有认证过的用户上 
+//上面命令显示对非资源url只能执行get操作 ，与下面说法矛盾 
+对于非资源型URL ，使用普通的HTTP 动词，如post 、put 和patch,
+而不是create 或update 。动词需要使用小写的形式指定
+
+//这个角色访问的资源属于命名空间
+$ kubectl get clusterrole view -o yaml
+如果你创建了一个ClusterRoleBinding 并在它里面引用了ClusterRole,
+在绑定中列出的主体可以在所有命名空间中查看指定的资源。相反， 如果你创建的
+是一个RoleBinding, 那么在绑定中列出的主体只能查看在RoleBinding 命名空间中
+的资源。现在可以尝试使用这两个选项
+
+//使用ClusterRoleBinding绑定ClusterRole
+curl localhost:8001/api/v1/pods  //查看集群级别资源
+curl localhost:8001/api/v1/namespaces/foo/pods //查看命名空间级别资源 
+kubectl create clusterrolebinding view-test --clusterrole=view --serviceaccount=foo:default
+curl localhost:8001/api/v1/namespaces/bar/pods
+
+//使用命名空间中的RoleBinding绑定ClusterRole
+$ kubectl delete clusterrolebinding view-test
+$ kubectl create rolebinding view-test --clusterrole=view --serviceaccount=foo:default -n foo
+
+Kubemetes提供了一组默认的ClusterRole和ClusterRoleBinding
+$ kubect1 get clusterrolebindings //查看
+$ kubectl get clusterroles
+
+view、ed江、adrnin和cluster-adrnin ClusterRole是最重要的角色， 它们
+应该绑定到用户定义pod中的ServiceAccount上。
+用view ClusterRole 允许对资源的只读访问
+
+用editClusterRole允许对资源的修改
+接下来是ed江ClusterRole, 它允许你修改一个命名空间中的资源， 同时允许
+读取和修改Secret。但是，它也不允许查看或修改Role和RoleBinding, 这是为了
+防止权限扩散。
+
+用adminClusterRole赋予一个命名空间全部的控制权
+ed江和adminClusterRole
+一个命名空间中的资源的完全控制权是由admin ClusterRole赋予的。有这个
+ClusterRole的主体可以读取和修改命名空间中的任何资源， 除了ResourceQuota (我
+们会在第14章中了解它是什么）和命名空间资源本身。
+之间的主要区别是能否在命名空间中查看和修改Role和RoleBinding。
+
+用cluster-admin ClusterRole得到完全的控制
+通过将cluster-adminClusterRole赋给主体，主体可以获得Kubernetes 集群
+完全控制的权限。正如你前面了解的那样，adminClusterRole不允许用户修改命名
+空间的ResourceQuota对象或者命名空间资源本身。如果你想允许用户这样做， 需
+要创建一个指向cluster-adminClusterRole的RoleBinding。这使得RoleBinding
+中包含的用户能够完全控制创建RoleBinding所在命名空间上的所有方面
+
+了解其他默认的ClusterRole
+默认的ClusterRole列表包含了大量其他的ClusterRole, 它们以sys 七em:
+为前缀
+
+---------------------------------C13-----------------------------
+Chapter 13. Securing cluster nodes and the network
+
+13.1 在pod中使用宿主节点的Linux命名空间
+某个pod可能需要使用宿主节
+点上的网络适配器，而不是自己的虚拟网络设备。这可以通过将pod spec中的
+hostNetwork设置为true实现。
+这意味着这个pod没有自己的IP地址；如果这个pod中的
+某一进程绑定了某个端口，那么该进程将被绑定到宿主节点的端口上
+
+13.1.2 绑定宿主节点上的端口而不使用宿主节点的网络命名空间
+配置pod 的spec . containers . ports 字段中某个容器某一端口的hostPort 属性来实现。
+
+//图13.2;NodePort-反向代理-服务发现
+对于一个使用hostPort 的p o d ，到达宿主节点的端
+口的连接会被直接转发到pod 的对应端口上：然而在NodePort 服务中，到达宿主
+节点的端口的连接将被转发到随机选取的pod 上
+
+很重要的一点是，如果一个pod 绑定了宿主节点上的一个特定端口，每个宿主
+节点只能调度－个这样的pod 实例，因为两个进程不能绑定宿主机上的同一个端口。
+
+//??If you have multiple nodes, you’ll see you can’t access the pod 
+//through that port on the other nodes.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubia-hostport
+spec:
+  containers:
+  - image: luksa/kubia
+    name: kubia
+    ports:
+    - containerPort: 8080
+      hostPort: 9000
+      protocol: TCP
+
+pod spec 中的hostPID 和host IPC 选项与hostNetwork 相似。当它们被设
+置为true 时， pod 中的容器会使用宿主节点的PID 和IPC 命名空间，分别允许它
+们看到宿主机上的全部进程，或通过IPC 机制与它们通信。
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-host-pid-and-ipc
+spec:
+  hostPID: true
+  hostIPC: true
+  containers:
+  - name: main
+    image: alpine
+    command: ["/bin/sleep", "999999"]
+k exec pod-with-host-pid-and-ipc -- ps aux
+
+13.2 配置节点的安全上下文
+容器运行时使用的用户在镜像中指定3 在Dockerfile 中，这是通过使用
+USER 命令实现的。如果该命令被省略，容器将使用root 用户运行
+$ kubectl run pod-with-defaults --image alpine --restart Never -- /bin/sleep 999999
+//查看用户id
+kubectl exec pod -with-defaults --  id
+//设置该pod 的securityContext.runAsUser 选项
+	apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-as-user-guest
+spec:
+  containers:
+  - name: main
+    image: alpine
+    command: ["/bin/sleep", "999999"]
+    securityContext:
+      runAsUser: 405                  //指定id而不是用户名，405对应guest客户 
+	  
+//使得pod 中的容器以非root 用户运行，
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-run-as-non-root
+spec:
+  containers:
+  - name: main
+    image: alpine
+    command: ["/bin/sleep", "999999"]
+    securityContext:
+      runAsNonRoot: true	   //因为alpine以root运行，所以容器不能运行 
+	  
+//为获取宿主机内核的完整权限，该pod 需要在特权模式下运行。这可以通过将
+//容器的securityContext 中的privileged设置为true 实现	  
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-privileged
+spec:
+  containers:
+  - name: main
+    image: alpine
+    command: ["/bin/sleep", "999999"]
+    securityContext:
+      privileged: true
+k exec pod-privileged -- ls /dev
+
+13.2.4 为容器单独添加内核功能
+Kubernetes允许为特定的容器添加内核
+功能， 或禁用部分内核功能， 以允许对容器进行更加精细的权限控制， 限制攻击者
+潜在侵入的影响。
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-add-settime-capability
+spec:
+  containers:
+  - name: main
+    image: alpine
+    command: ["/bin/sleep", "999999"]
+    securityContext:
+      capabilities:
+        add:
+        - SYS_TIME  //允许修改时间 
+如果需要允许容器修改系统时间， 可以在容器的capb辽1巨es里add 一项名
+为CAP_SYS_TIME的功能；Linux内核功能的名称通常以CAP_开头。但在podspec中指定内核功
+能时，必须省略CAP_前缀
+
+在pod-with-defaults 中将/tmp 目录的所有
+者改为guest 用户
+$ kubectl exec pod-with-defaults chown guest /tmp
+$ kubectl exec pod-with-defaults -- ls -la / | grep tmp
+drwxrwxrwt    2 guest    root             6 May 25 15:18 tmp
+
+在容器的
+securityContext.capabilities.drop 列表中加入此项， 以禁用这个修改文
+件所有者的内核功能
+在容器的
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-drop-chown-capability
+spec:
+  containers:
+  - name: main
+    image: alpine
+    command: ["/bin/sleep", "999999"]
+    securityContext:
+      capabilities:
+        drop:
+        - CHOWN
+		
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-readonly-filesystem
+spec:
+  containers:
+  - name: main
+    image: alpine
+    command: ["/bin/sleep", "999999"]
+    securityContext:
+      readOnlyRootFilesystem: true    //不允许写入容器根文件系统
+    volumeMounts:
+    - name: my-volume                //写入卷可以
+      mountPath: /volume
+      readOnly: false
+  volumes:
+  - name: my-volume
+    emptyDir:		
+以上的例子都是对单独的容器设置安全上下文。这些选项中的一部分也可以从
+pod级别设定（通过pod.spec.securityCon迳江属性）。它们会作为pod中每
+一个容器的默认安全上下文， 但是会被容器级别的安全上下文覆盖;
+
+Kubemetes允许为pod中所有容器指定supplemental组，以允许它们无
+论以哪个用户ID运行都可以共享文件。这可以通过以下两个属性设置：
+• fsGroup
+• supplementalGroups
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-shared-volume-fsgroup
+spec:
+  securityContext:
+    fsGroup: 555                   //加载的卷被组id 555所有 
+    supplementalGroups: [666, 777]
+  containers:
+  - name: first
+    image: alpine
+    command: ["/bin/sleep", "999999"]
+    securityContext:
+      runAsUser: 1111
+    volumeMounts:
+    - name: shared-volume
+      mountPath: /volume
+      readOnly: false
+  - name: second
+    image: alpine
+    command: ["/bin/sleep", "999999"]
+    securityContext:
+      runAsUser: 2222
+    volumeMounts:
+    - name: shared-volume
+      mountPath: /volume
+      readOnly: false
+  volumes:
+  - name: shared-volume
+    emptyDir:
+//有效组id 为 0 
+$ kubectl exec -it pod-with-shared-volume-fsgroup -c first -- sh
+/ $ id
+uid=1111 gid=0(root) groups=555,666,777
+/ $ ls -l / | grep volume  //group id 555拥有卷 	
+drwxrwsrwx    2 root     555              6 May 29 12:23 volume
+/ $ echo foo > /volume/foo   //在卷中创建文件
+/ $ ls -l /volume
+total 4
+-rw-r--r--    1 1111     555              4 May 29 12:25 foo
+//不在卷中创建文件 
+/ $ echo foo > /tmp/foo
+/ $ ls -l /tmp
+total 4
+-rw-r--r--    1 1111     root             4 May 29 12:41 foo
+
+13.3 限制pod使用安全相关的特性
+PodSecurityPolicy 是一种集群级别（无命名空间）的资源， 它定义了用户能否
+在pod 中使用各种安全相关的特性。维护PodSecurityPolicy 资源中配置策略的工作
+由集成在API 服务器中的PodSecurityPolicy 准入控制插件完成
+
+当有人向API 服务器发送pod 资源时， PodSecurityPolicy 准入控制插件会将这
+个pod 与已经配置的PodSecurityPolicy 进行校验。如果这个pod 符合集群中已有安
+全策略， 它会被接收并存入etcd; 否则它会立即被拒绝。这个插件也会根据安全策
+略中配置的默认值对pod 进行修改。
+
+apiVersion: extensions/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: default
+spec:
+  hostIPC: false
+  hostPID: false
+  hostNetwork: false
+  hostPorts:
+  - min: 10000
+    max: 11000                  //闭区间
+  - min: 13000
+    max: 14000
+  privileged: false
+  readOnlyRootFilesystem: true
+  runAsUser:
+
+    rule: RunAsAny
+
+  fsGroup:
+
+    rule: RunAsAny
+
+  supplementalGroups:
+
+    rule: RunAsAny
+
+  seLinux:
+
+    rule: RunAsAny
+
+  volumes:
+
+  - '*'
+ 没有对容器运行时可以使用的用户和用户组施加任何限
+制，因为它们在runAsUser、fsGroup、supplementalGroups等字段中使用
+，了runAsAny规则。如果需要限制容器可以使用的用户和用户组ID, 可以将规则
+改为MustRunAs, 并指定允许使用的ID范围。
+runAsUser:
+    rule: MustRunAs
+    ranges:
+    - min: 2
+      max: 2
+  fsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 2
+      max: 10
+    - min: 20
+      max: 30
+  supplementalGroups:
+    rule: MustRunAs
+    ranges:
+    - min: 2
+      max: 10
+    - min: 20
+      max: 30
+部署镜像中用户ID 在指定范围之外的pod，PSP策略会覆盖被硬编码在进行中的user ID;
+
+以下三个字段会影响容器可以使用的
+内核功能：
+• allowedCapabilities
+• defaultAddCapabilities
+• requiredDropCapabilities
+
+apiVersion: extensions/v1beta1
+kind: PodSecurityPolicy
+spec:
+  allowedCapabilities:    //允许容器spec.securityContext.capabilities添加内核功能
+  - SYS_TIME
+  defaultAddCapabilities:  //自动添加，容器可以显示禁用 
+  - CHOWN
+  requiredDropCapabilities: //禁用，security-Context.capabilities.drop 
+  - SYS_ADMIN
+  - SYS_MODULE
+  ...
+
+
+//允许在pod中使用哪些卷 
+kind: PodSecurityPolicy
+spec:
+  volumes:
+  - emptyDir
+  - configMap
+  - secret
+  - downwardAPI
+  - persistentVolumeClaim
+  
+13.3.5 对不同的用户与组分配不同的PodSe cu rityPol icy
+Assigning different policies to different users is done through the 
+RBAC mechanism described in the previous chapter. The idea is to create 
+as many policies as you need and make them available to individual users 
+or groups by creating ClusterRole resources and pointing them to the individual 
+policies by name. By binding those ClusterRoles to specific users or groups 
+with ClusterRoleBindings, when the PodSecurityPolicy Admission Control plugin 
+needs to decide whether to admit a pod definition or not, it will only consider 
+the policies accessible to the user creating the pod.
+
+//minikube以cluster-admin登录,查看default psp 
+//创建psp
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: privileged
+spec:
+  privileged: true
+  runAsUser:
+    rule: RunAsAny
+  fsGroup:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  volumes:
+  - '*'
+//创建default psp对应的role
+$ kubectl create clusterrole psp-default --verb=use --resource=podsecuritypolicies --resource-name=default
+clusterrole "psp-default" created
+//另一个role 
+$ kubectl create clusterrole psp-privileged --verb=use  --resource=podsecuritypolicies --resource-name=privileged
+clusterrole "psp-privileged" created
+
+//绑定role
+$ kubectl create clusterrolebinding psp-all-users  --clusterrole=psp-default --group=system:authenticated
+clusterrolebinding "psp-all-users" created
+//绑定到system:authenticated， Admission Control plugin会使用该策略
+You’re going to bind the psp-default ClusterRole to all authenticated users, 
+not only to Alice. This is necessary because otherwise no one could create any 
+pods, because the Admission Control plugin would complain that no policy is in 
+place. Authenticated users all belong to the system:authenticated group, so you’ll 
+bind the ClusterRole to the group:
+
+//绑定bob 
+$kubectl create clusterrolebinding psp-bob --clusterrole=psp-privileged --user=bob
+clusterrolebinding "psp-bob" created
+
+本书的附录
+A 说明了如何在多个集群和多个上下文中使用kubectl
+$ kubectl config set-credentials alice --username=alice --password=password
+User "alice" set.
+$ kubectl config set-credentials bob --username=bob --password=password
+User "bob" set.
+
+//失败！
+$ kubectl --user alice create -f pod-privileged.yaml #Forbidden
+$ kubectl --user bob create -f pod-privileged.yaml
+
+13.4 隔离pod 的网络
+限制pod 可以与其他哪
+些pod 通信，来确保pod 之间的网络安全。
+是否可以进行这些配置取决于集群中使用的容器网络插件。如果网络插件支持，
+可以通过NetworkPolicy 资源配置网络隔离
+
+13.4.1 在一个命名空间中启用网络隔离
+在默认情况下， 某一命名空间中的pod 可以被任意来源访问。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector:
+在任何一个特定的命名空间中创建该N etworkPo li cy 之后，任何客户端都不能
+访问该命名空间中的pod 。
+注意集群中的CNI 插件或其他网络方案需要支持NetworkPolicy ，否则
+NetworkPolicy 将不会影响pod 之间的可达性  
+
+13.4.2 允许同一命名空间中的部分pod 访问一个服务端pod
+为了允许同一命名空间中的客户端pod 访问该命名空间的pod ，需要指明哪些
+pod 可以访问
+//在数据库pod 所在的命名空间中创建
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-netpolicy
+spec:
+  podSelector:
+    matchLabels:
+      app: database
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: webserver
+    ports:
+    - port: 5432
+NetworkPolicy 允许具有app=webserver 标签的pod 访问具有
+app=database 的pod 的访问，并且仅限访问5432 端口
+
+13.4.3 在不同Kubernetes 命名空间之间进行网络隔离
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shoppingcart-netpolicy
+spec:
+  podSelector:
+    matchLabels:
+      app: shopping-cart     //目的app
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          tenant: manning    //筛选from app
+    ports:
+    - port: 80
+以上NetworkPolicy保证了只有具有tenant：manning 标签的命名空间中运行
+的pod 可以访问Shopping Cai1微服务；
+注意在多租户的Kubernetes集群中，通常租户不能为他们的命名空间添加标
+签（或注释）。否则，他们可以规避基于namespaceSelector的入向规则
+
+13.4.4 使用CIDR隔离网络
+only be accessible from IPs in the 192.168.1.1 to .255 range
+ingress:
+  - from:
+    - ipBlock:
+        cidr: 192.168.1.0/24
+		
+13.4.5 限制pod的对外访问流量		
+spec:
+  podSelector:
+    matchLabels:
+      app: webserver
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: database
+以上的NetworkPolicy仅允许具有标签app=webserver的pod访问具有标签
+app= database的pod, 除此之外不能访问任何地址（不论是其他pod, 还是任何
+其他的IP, 无论在集群内部还是外部）。
