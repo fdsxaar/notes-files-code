@@ -1435,3 +1435,776 @@ spec:
 以上的NetworkPolicy仅允许具有标签app=webserver的pod访问具有标签
 app= database的pod, 除此之外不能访问任何地址（不论是其他pod, 还是任何
 其他的IP, 无论在集群内部还是外部）。
+
+-------------------------C14------------------------------
+Chapter 14. Managing pods’ computational resources
+14.1 为pod中的容器申请资源
+创建一个pod 时， 可以指定容器对CPU 和内存的资源请求量（ 即
+requests), 以及资源限制量（即Lim心）。它们并不在pod 里定义， 而是针对每个容
+器单独指定。pod 对资源的请求量和限制量是它所包含的所有容器的请求量和限制
+量之和。
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: requests-pod
+spec:
+  containers:
+  - image: busybox
+    command: ["dd", "if=/dev/zero", "of=/dev/null"]
+    name: main
+    resources:
+      requests:
+        cpu: 200m
+        memory: 10Mi
+通过设置资源requests我们指定了pod对资源需求的最小值
+
+调度器如何判断一个pod是否适合调度到某个节点
+这里比较重要而且会令人觉得意外的是，调度器在调度时并不关注各类资源在
+当前时刻的实际使用噩，而只关心节点上部署的所有pod 的资源申请量之和。尽管
+现有pods 的资源实际使用量可能小于它的申请量，但如果使用基于实际资源消耗量
+的调度算法将打破系统为这些已部署成功的pods提供足够资源的保证
+
+两个基于资源请求量的优先级排序函数： LeastRequestedPriority和
+MostReques七edPriority。前者优先将pod 调度到请求量少的节点上（也就是
+拥有更多未分配资源的节点）， 而后者相反， 优先调度到请求量多的节点（拥有更少
+未分配资源的节点）。但是， 正如我们刚刚解释的， 它们都只考虑资源请求量， 而
+不关注实际使用资源量。
+
+$ kubectl exec -it requests-pod top
+//查看资源总量 
+$ kubectl describe nodes
+Name:       minikube
+...
+Capacity:
+  cpu:           2
+  memory:        2048484Ki
+  pods:          110
+Allocatable:
+  cpu:           2
+  memory:        1946084Ki
+  pods:          110
+...
+$ kubectl run requests-pod-2 --image=busybox --restart Never
+➥  --requests='cpu=800m,memory=20Mi' -- dd if=/dev/zero of=/dev/null
+pod "requests-pod-2" created
+
+14.1.3 CPU requests如何影响CPU时间分配
+CPU requests不仅仅在调度时起作用，它还决定着剩余（未使用） 的CPU时间
+如何在pod之间分配。正如图14.2描绘的那样，因为第一个pod 请求了200毫核，
+另一个请求了1000毫核，所以未使用的CPU将按照1:5的比例来划分给这两个
+pod。如果两个pod 都全力使用CPU,第一个pod 将获得16.7%的CPU时间，另一
+个将获得83.3%的CPU时间
+
+另一方面，如果一个容器能够跑满CPU,而另一个容器在该时段处于空闲状态，
+那么前者将可以使用整个CPU时间（当然会减掉第二个容器消耗的少量时间）。
+
+第二个容器需要CPU时间的时候就会获取到，同时第一个容器会被限制回来。
+
+14.1.4 定义和申请自定义资源
+Defining and requesting custom resources
+一个自定义资源的例子就是节点上可用的GPU 单元数量。
+
+14.2 限制容器的可用资源
+CPU 是一种可压缩资源，意味着我们可以在不对容器内运行的进程产生不利影
+响的同时，对其使用量进行限制。而内存明显不同一一是一种不可压缩资源。一旦
+系统为进程分配了一块内存，这块内存在进程主动释放之前将无法被回收。这就是
+我们为什么需要限制容器的最大内存分配量的根本原因。
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: limited-pod
+spec:
+  containers:
+  - image: busybox
+    command: ["dd", "if=/dev/zero", "of=/dev/null"]
+    name: main
+    resources:
+      limits:
+        cpu: 1
+        memory: 20Mi
+resource requests等于 resource limits
+
+Overcommitting limits
+与资源requests 不同的是，资源limits 不受节点可分配资源量的约束。所有
+limits 的总和允许超过节点资源总量的100%；如果节点资源使用量超过100% ， 一些容器将被杀掉， 这是一个很重要的
+结果
+
+//对于容器而言，当获取内存而不得时，相当于系统内存耗尽，程序出现错误，
+//因此，k8s重启是合理的
+而内存却有所不同。当进程尝试申请分配比限额更多的内存时会被杀掉（我们
+会说这个容器被OOMKilled 了， OOM 是Out 仁’ Memory 的缩写〉。如果pod 的重
+启策略为Always 或OnFailure ，进程将会立即重启，因此用户可能根本察觉不
+到它被杀掉。但是如果它继续超限并被杀死， Kub erne tes 会再次尝试重启，并开始
+增加下次重启的间隔时间。这种情况下用户会看到pod 处于CrashLoopBackOf f
+状态：
+$ kubectl get po
+NAME        READY     STATUS             RESTARTS   AGE
+memoryhog   0/1       CrashLoopBackOff   3          1m
+
+一旦间隔时间达到3 00 秒， Kubelet 将以5 分钟为间隔时间对容器进行无限重启，直到容器正常运行
+或被删除。
+
+要定位容器crash 的原因，可以通过查看pod 日志以及kubectl describe
+pod 命令
+
+14.2.3 容器中的应用如何看待li m i t s
+k apply -f limited-pod.yaml
+k exec -it limited-pod -- top
+//貌似内存limit没什么用 
+在容器内看到的始终是节点的内存， 而不是容器本身的内存
+The top command shows the memory amounts of the whole node the container is running on. 
+Even though you set a limit on how much memory is available to a container, the container 
+will not be aware of this limit.
+
+不要依赖应用程序从系统获取的CPU 数量，你可能需要使用Downward API 将
+CPU 限额传递至容器并使用这个值。也可以通过cgroup 系统直接获取配置的CPU
+限制，请查看下面的文件：
+• /sys/fs/cgroup/cpu/cpu .cfs quota_ us
+• /sys/fs/cgroup/cpu/cpu.cfs period_ us
+
+14.3 了解pod QoS等级
+Kubernetes 将
+pod 划分为3 种QoS 等级：
+• BestEffort （优先级最低）
+• Burstable
+• Guaranteed （优先级最高）
+
+没有设置任何requests 和limits 的pod的优先级是BestEffort；
+
+Guaranteed级别的pod，对于pod内的每个container:
+• CPU 和内存都要设置requests 和limits
+． 每个容器都需要设置资源量
+· 它们必须相等（每个容器的每种资源的requests 和limits 必须相等）
+如果容器的资源requests 没有显式设置，默认与limits 相同
+
+Burstable：不能归入上述两种的情况 
+
+如果一开始从容器
+级别考虑QoS C 尽管它并不是容器的属性，而是pod 的属性），然后从容器Q oS 推
+导出pod QoS ，这样可能更容易理解。
+
+对千多容器pod, 如果所有的容器的QoS等级相同， 那么这个等级就是pod的
+QoS等级。如果至少有一个容器的QoS等级与其他不同，无论这个容器是什么等级，
+这个pod的QoS等级都是Burstable等级
+
+
+注意运行kubectl describe pod以及通过pod的YAML/JSON描述的
+Status.qosClass字段都可以查看pod的QoS等级。
+
+//杀死pod
+在一个超卖的系统， QoS等级决定着哪个容器第一个被杀掉， 这样释放出的资
+源可以提供给高优先级的pod使用。BestEffort等级的pod首先被杀掉， 其次是
+Burstable pod, 最后是Guaranteed pod。Guaranteedpod只有在系统进程
+需要内存时才会被杀掉。
+
+如何处理相同QoS等级的容器
+每个运行中的进程都有一个称为OutOfMemory (OOM)分数的值。系统通过比
+较所有运行进程的OOM分数来选择要杀掉的进程。当需要释放内存时， 分数最高
+的进程将被杀死。
+
+OOM scores are calculated from two things: the percentage of the available memory 
+the process is consuming and a fixed OOM score adjustment, which is based on the pod’s 
+QoS class and the container’s requested memory.
+
+对于两个属于Burstable等级的单容器的pod, 系统会杀掉内存实际使用量占内存申请量比例
+更高的pod
+
+14.4 为命名空间中的pod 设置默认的requests 和limits
+用户可以通过创建一个LimitRange资源来避免必须配置每个容器。L血itRange
+资源不仅允许用户（为每个命名空间）指定能给容器配置的每种资源的最小和最大
+限额， 还支持在没有显式指定资源requests 时为容器设置默认值，
+
+L皿itRange资源被LimitRanger准入控制插件（我们在第11章介绍过这种插件）。
+API服务器接收到带有pod描述信息的POST请求时， LimitRanger插件对pod spec
+进行校验。如果校验失败， 将直接拒绝。因此， LimitRange对象的一个广泛应用场
+景就是阻止用户创建大千单个节点资源量的pod。如果没有LimitRange, API服务
+器将欣然接收pod创建请求， 但永远无法调度成功。
+
+LimtRange资源中的limit s应用于同一个命名空间中每个独立的pod、容器，
+或者其他类型的对象。它并不会限制这个命名空间中所有pod可用资源的总量， 总
+量是通过Resou rceQuota对象指定的
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: example
+spec:
+  limits:
+  - type: Pod
+    min:
+      cpu: 50m
+      memory: 5Mi
+    max:
+      cpu: 1
+      memory: 1Gi
+  - type: Container
+    defaultRequest:     //为没有设置requests的容器设定默认的cpu和内存requests
+
+      cpu: 100m
+
+      memory: 10Mi
+
+    default:          //为没有设置limits的容器设定默认的cpu和内存limits
+
+      cpu: 200m
+
+      memory: 100Mi
+
+    min:
+
+      cpu: 50m
+
+      memory: 5Mi
+
+    max:
+
+      cpu: 1
+
+      memory: 1Gi
+
+    maxLimitRequestRatio:
+      cpu: 4
+      memory: 10
+  - type: PersistentVolumeClaim
+    min:
+      storage: 1Gi
+    max:
+      storage: 10Gi
+
+由于L血itRange对象中配置的校验（和默认值）信息在API服务器接收到新的
+pod或PVC创建请求时执行，如果之后修改了限制，已经存在的pod和PVC 将不
+会再次进行校验，新的限制只会应用于之后创建的pod和PVC 。
+
+在每个命
+名空间中定义不同的LimitRange就可以确保只在特定的命名空间中可以创建资源需
+求大的pod, 而在另一些命名空间中只能创建资源需求小的pod。
+
+14.5 限制命名空间中的可用资源总量
+ResourceQuota的接纳控制插件会检查将要
+创建的pod是否会引起总资源量超出ResourceQuota。如果那样，创建请求会被拒绝。
+因为资源配额在pod 创建时进行检查，所以ResourceQuota对象仅仅作用于在其后
+创建的pod— — 并不影响已经存在的pod。
+资源配额限制了一个命名空间中pod和PVC存储最多可以使用的资源总址。同
+时也可以限制用户允许在该命名空间中创建pod、PVC, 以及其他API对象的数量，
+因为到目前为止我们处理最多的资源是CPU和内存
+
+LimitRange应用于单独的pod ; ResourceQuota应用千命名空间中所有的pod
+$ kubectl describe po kubia-manual
+Name:           kubia-manual
+...
+Containers:
+  kubia:
+    Limits:
+      cpu:      200m
+      memory:   100Mi
+    Requests:
+      cpu:      100m
+      memory:   10Mi
+
+$ kubectl describe quota
+
+创建ResourceQuota时往往还需要随之创建一个
+LimitRange对象。当特定资源(CPU或内存）配置了(requests或limits)配额， 在pod中
+必须为这些资源（分别〉指定requests 或limits ，否则API 服务器不会接收该pod 的
+创建请求。
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: storage
+spec:
+  hard:
+    requests.storage: 500Gi      #全部可声明的存储为500G
+    ssd.storageclass.storage.k8s.io/requests.storage: 300Gi //可声明的SSD为300G
+    standard.storageclass.storage.k8s.io/requests.storage: 1Ti  //hdd存储
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: objects
+spec:
+  hard:
+    pods: 10
+    replicationcontrollers: 5
+    secrets: 10
+    configmaps: 10
+    persistentvolumeclaims: 4
+    services: 5
+    services.loadbalancers: 1
+    services.nodeports: 2
+    ssd.storageclass.storage.k8s.io/persistentvolumeclaims: 2 //只有两个pvc能声明ssd类别存储
+
+
+目前配额作用范围共有4 种：
+BestEff ort 、NotBestEffort 、Termination 矛日NotTerminatingo
+Best Ef f ort 和NotBestEffort 范围决定配额是否应用于BestEffo rt
+QoS 等级或者其他两种等级（ B ur stable 和Guaranteed ） 的pod
+
+//Terminating quto应用于设定了active-Deadline-Seconds的pod,Not-Terminating反之
+you can specify how long each pod is allowed to run before it’s terminated and marked as 
+Failed. This is done by setting the active-Deadline-Seconds field in the pod spec. This 
+property defines the number of seconds a pod is allowed to be active on the node relative 
+to its start time before it’s marked as Failed and then terminated. The Terminating quota 
+scope applies to pods that have the active-DeadlineSeconds set, whereas the Not-Terminating 
+applies to those that don’t.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: besteffort-notterminating-pods
+spec:
+  scopes:
+  - BestEffort
+  - NotTerminating
+  hard:
+    pods: 4
+
+允许最多创建4 个属于BestEffort QoS 等级，并没有设置active
+deadline 的pod
+
+14.6 监控pod 的资源使用量
+Kubelet 自身就
+包含了一个名为cAdvisor 的agent ，它会收集整个节点和节点上运行的所有单独容
+器的资源消耗情况。集中统计整个集群的监控信息需要运行一个叫作Heapster 的附
+加组件
+
+//Heapster已被废除
+minikube addons enable heapster
+
+$ kubect1 top node //GKE 可行 
+$ k top pod --all-namespaces
+$ k top pod --container=false --all-namespaces
+
+如果使用Google Container Engine, 可以通过
+Google Cloud Monitoring 来对集群进行监控， 但是如果是本地Kubemetes 集群（通
+过Minikube 或其他方式创建）， 人们往往使用InfluxDB 来存储统计数据， 然后使用
+Grafana 对数据进行可视化和分析
+
+lnfluxDB和Grafana 介绍
+lnfluxDB 是一个用于存储应用指标， 以及其他监控数据的开源的时序数据库。
+Grafana 是一个拥有着华丽的web 控制台的数据分析和可视化套件，同样也是开源的，
+它允许用户对InfluxDB 中存储的数据进行可视化， 同时发现应用程序的资源使用行
+为是如何随时间变化的
+
+在集群中运行lnfluxDB和Grafana
+InfluxDB 和Grafana 都可以以pod 运行， 部署简单方便。所有需要的部署文
+件可以在Heapster Git 仓库中获取：http://github.com/kubernetes/heapster/tree/master/deploy/kube-config/influxdb
+如果使用Minik:ube 就无须手动部署， 因为启用Heapster 插件时便会随之部署
+Heapster
+
+//使用Grafana 分析资源使用量
+$ kubectl cluster-info
+$ minikube service monitoring-grafana -n kube-system
+
+
+
+
+————————————————————————————————————————————C15————————————————————————————————————————————————
+Chapter 15. Automatic scaling of pods and cluster nodes
+
+15.1 pod的横向自动伸缩
+//HPA
+Horizontal pod autoscaling is the automatic scaling of the number of pod replicas managed by a 
+controller. It’s performed by the Horizontal controller, which is enabled and configured by creating 
+a HorizontalPodAutoscaler (HPA) resource. The controller periodically checks pod metrics, calculates 
+the number of replicas required to meet the target metric value configured in the HorizontalPodAutoscaler 
+resource, and adjusts the replicas field on the target resource (Deployment, ReplicaSet, Replication-Controller, 
+or StatefulSet).
+
+15.1.1 了解自动伸缩过程
+自动伸缩的过程可以分为三个步骤：
+• 获取被伸缩资源对象所管理的所有pod度量。
+• 计算使度量数值到达（或接近）所指定目标数值所需的pod数量。
+• 更新被伸缩资源的rep巨cas字段。
+
+HPA控制器向Heapster 发起REST调用来获取所有pod度量数据
+
+当Autoscaler配置为只考虑单个度量时， 计算所需副本数很简单。只要将所有
+pod的度量求和后除以HPA资源上配置的目标值， 再向上取整即可;
+基于多个pod度量的自动伸缩（例如： CPU使用率和每秒查询率[QPS])的计
+算也并不复杂。Autoscaler单独计算每个度量的副本数， 然后取最大值（例如：如
+果需要4个pod达到目标CPU使用率， 以及需要3个pod来达到目标QPS, 那么
+Autoscaler 将扩展到4个pod)
+
+Autoscaler控制器通过Scale子资源来修改被伸缩资源的rep巨cas字段。这
+样Autoscaler不必了解它所管理资源的细节，而只需要通过Scale子资源暴露的界面，
+
+15.1.2 基于CPU使用率进行自动伸缩
+As far as the Autoscaler is concerned, only the pod’s guaranteed CPU amount (the CPU requests) 
+is important when determining the CPU utilization of a pod. The Autoscaler compares the pod’s 
+actual CPU consumption and its CPU requests, which means the pods you’re autoscaling need to have 
+CPU requests set (either directly or indirectly through a LimitRange object) for the Autoscaler to 
+determine the CPU utilization percentage.
+
+$ kubectl autoscale deployment kubia --cpu-percent=30 --min=1 --max=5
+deployment "kubia" autoscaled
+$k get hpa kubia -o yaml
+
+//观察
+$ watch -n 1 kubectl get hpa,deployment
+
+$ kubectl run -it --rm --restart=Never loadgenerator --image=busybox -- sh -c "while true; do wget -O - -q http://kubia.default; done"
+
+$while true; do curl 34.92.157.173:8080; done
+
+修改一个已有HPA 对象的目标度量值,
+使用kubectl edit 文本编辑器打开之后，把targetAverageUtilization 字段改为60,
+
+15.1.3 基于内存使用进行自动伸缩
+基于内存的自动伸缩比基于CPU 的困难很多。主要原因在于，扩容之后原有的
+pod 需要有办法释放内存。这只能由应用完成，系统无法代芳。系统所能做的只有
+杀死并重启应用，希望它能比之前少占用一些内存；但如果应用使用了跟之前一样
+多的内存， Autoscaler 就会扩容、扩容， 再扩容， 直到达到HPA 资源上配置的最大
+pod 数量。
+
+//
+you have three types of metrics you can use in an HPA object:
+Resource
+Pods
+Object
+...
+spec:
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 30
+...
+//与pod相关的metric
+//The Pods type is used to refer to any other (including custom) metric related to the pod directly
+...
+spec:
+  metrics:
+  - type: Pods
+    resource:
+      metricName: qps
+      targetAverageValue: 100
+...
+
+//基于其他的object做出决策
+//The Object metric type is used when you want to make the autoscaler scale pods based on a 
+metric that doesn’t pertain directly to those pods.
+...
+spec:
+  metrics:
+  - type: Object
+    resource:
+      metricName: latencyMillis
+      target:
+        apiVersion: extensions/v1beta1
+        kind: Ingress
+        name: frontend
+      targetValue: 20
+  scaleTargetRef:
+
+    apiVersion: extensions/v1beta1
+
+    kind: Deployment
+
+    name: kubia
+
+...
+
+空载（ idling ）与解除空载（un-idling），即允许提供特定服务的pod 被缩
+容量到0副 本。在新的请求到来时，请求会先被阻塞，直到pod 被启动，从而请求被
+转发到新的pod 为止。
+
+15.2 pod 的纵向自动伸缩
+并不是所有应用都能被横向伸缩。对这些应用而言，唯一的
+选项是纵向伸缩一－给它们更多CPU 和（或）内存
+
+这是一个实验性的特性， 如果新创建的pod的容器没有明确设置CPU与内
+存请求， 该特性即会代为设置。这一特性由一个叫作lnitialResources的准入控制
+(Ad missionC ontrol)插件提供。 当一个没有资源请求的pod被创建时， 该插件会根
+据pod 容器的历史资源使用数据（随容器镜像、tag而变）来设置资源请求。
+
+15.3 集群节点的横向伸缩
+ClusterA utoscaler负责在由千节点资源不足， 而无法调度某pod到已有节点时，
+自动部署新节点。它也会在节点长时间使用率低下的情况下下线节点。
+云服务提供者通常把相同规格（或者有相同特性）的节点聚合成组。因此
+Cluster Autoscaler不能单纯地说“给我多一个节点”，它还需要指明节点类型。
+Cluster Autoscaler 通过检查可用的节点分组来确定是否有至少一种节点类型能
+容纳未被调度的pod。如果只存在唯一一个此种节点分组，ClusterAutoscaler就可以
+增加节点分组的大小，让云服务提供商给分组中增加一个节点。但如果存在多个满
+足条件的节点分组，ClusterAutoscaler就必须挑一个最合适的。这里“ 最合适” 的
+精确含义显然必须是可配置的。在最坏的情况下，它会随机挑选一个。图15.5简单
+描述了ClusterAutoscaler面对一个不可调度pod时是如何反应的。
+
+归还节点
+当节点利用率不足时， Cluster Autoscaler 也需要能够减少节点的数目。Cluster
+Autoscaler 通过监控所有节点上请求的CPU 与内存来实现这一点。如果某个节点上
+所有pod请求的CPU 、内存都不到50%, 该节点即被认定为不再需要。
+//如果系统pod仅仅运行在这个节点，节点不会下线；
+//如果未管理的pod或带有本地存储的pod运行在这个节点，节点也不会下线；
+//只有pods能调度其他节点的 节点才能下线 
+The Autoscaler also checks to see if any system pods are running (only) on that node 
+(apart from those that are run on every node, because they’re deployed by a DaemonSet, for example). 
+If a system pod is running on a node, the node won’t be relinquished. The same is also true if an 
+unmanaged pod or a pod with local storage is running on the node, because that would cause disruption 
+to the service the pod is providing. In other words, a node will only be returned to the cloud provider 
+if the Cluster Autoscaler knows the pods running on the node will be rescheduled to other nodes.
+
+当一个节点被选中下线，它首先会被标记为不可调度， 随后运行其上的pod 将
+被疏散至其他节点
+
+Manually cordoning and draining nodes
+//拉起警戒线
+kubectl cordon <node> marks the node as unschedulable (but doesn’t do anything with pods running on that node).
+kubectl drain <node> marks the node as unschedulable and then evicts all the pods from the node.
+In both cases, no new pods are scheduled to the node until you uncordon it again with kubectl uncordon <node>
+
+Kubemetes可以指定下线等操作时需要保待的最少pod数量，
+我们通过创建一个podDisruptionBudget资源的方式来利用这一特性。
+
+$ kubectl create pdb kubia-pdb --selector=app=kubia --min-available=3
+poddisruptionbudget "kubia-pdb" created
+
+$ kubectl get pdb kubia-pdb -o yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: kubia-pdb
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels:
+      app: kubia
+status:
+  ...
+
+也可以用一个百分比而非绝对数值来写minAvailable字段。比方说，可以
+指定60%带app=kubia标签的pod应当时刻保持运行。
+注意从Kubemetes 1. 7开始，podDismptionBudget资源也支持maxUnavailable。
+如果当很多pod不可用而想要阻止pod被剔除时，就可以用maxUnavailable字段
+而不是minAvailable。
+
+
+———————————————————————————————————————————————————C16——————————————————————————————————————
+|            Chapter 16. Advanced scheduling                                                |
+—————————————————————————————————————————————————————————————————————————————————————————————
+
+16.1. Using taints and tolerations to repel pods from certain nodes
+
+//查看taints
+$ kubectl describe node master.k8s #Taints:输出 
+污点包含了一个key、value, 以及一个effect, 表现为<key>=<value>:<effect>,
+$ kubectl describe node master.k8s
+Name:         master.k8s
+Role:
+Labels:       beta.kubernetes.io/arch=amd64
+              beta.kubernetes.io/os=linux
+              kubernetes.io/hostname=master.k8s
+              node-role.kubernetes.io/master=
+Annotations:  node.alpha.kubernetes.io/ttl=0
+              volumes.kubernetes.io/controller-managed-attach-detach=true
+Taints:       node-role.kubernetes.io/master:NoSchedule
+...
+上例中的污点包含：
+the key node-role.kubernetes.io/master, a null value (not shown in the taint), and the effect of NoSchedule.
+
+#pod容忍度
+$ kubect1 describe po kube-proxy-80wqm -n kube-system #gke上去掉 kube-system 
+
+#当节点处在not-ready或 unreachable状态时，pod被允许运行多长时间 
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+
+每一个污点都可以关联一个效果， 效果包含了以下三种：
+• NoSchedule 表示如果pod 没有容忍这些污点， pod 则不能被调度到包含这
+些污点的节点上。
+• PreferNoSchedule 是NoSchedule 的一个宽松的版本， 表示尽量阻止
+pod 被调度到这个节点上， 但是如果没有其他节点可以调度， pod 依然会被调
+度到这个节点上。
+• NoExecute 不同于NoSchedule 以及PreferNoSchedule, 后两者只在
+调度期间起作用， 而NoExecute 也会影响正在节点上运行着的pod。如果
+在一个节点上添加了NoExecute 污点， 那些在该节点上运行着的pod, 如
+果没有容忍这个NoExecute 污点， 将会从这个节点去除。
+
+//给节点添加污点
+$ kubectl taint node node1.k8s node-type=production:NoSchedule
+node "node1.k8s" tainted
+//To remove the taint added by the command above, you can run:
+kubectl taint nodes node1 key=value:NoSchedule- //后面一个破折后
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: prod
+spec:
+  replicas: 5
+  template:
+    spec:
+      ...
+      tolerations:
+      - key: node-type
+        operator: Equal
+        value: production
+        effect: NoSchedule
+
+
+//Equal操作符匹配污点的key的特定值；Exists操作符能容忍任何操作符 
+taints can only have a key and an effect and don’t require a value. Tolerations can tolerate a 
+specific value by specifying the Equal operator (that’s also the default operator if you don’t specify one), 
+or they can tolerate any value for a specific taint key if you use the Exists operator.
+
+//配置时间; 默认5分钟 
+You can also use a toleration to specify how long Kubernetes should wait before rescheduling a pod to 
+another node if the node the pod is running on becomes unready or unreachable.
+$ kubectl get po prod-350605-1ph5h -o yaml
+...
+  tolerations:
+  - effect: NoExecute
+    key: node.alpha.kubernetes.io/notReady
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.alpha.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+注意当前这是一个alpha阶段的特性，在未来的Kubemetes版本中可能会有所
+改变。基于污点信息的pod剔除也不是默认启用的， 如果要启用这个特性， 需要在
+运行控制器管理器时使用--feature-gates=TaintBasedEvictions=true
+选项。
+
+节点亲缘性根据节点的标签来进行选择
+failure-domain.beta.kubernetes.io/region=asia-east2 //地理区域
+failure-domain.beta.kubernetes.io/zone=asia-east2-a //可用性区域 
+kubernetes.io/hostname=gke-k8s-learn-default-pool-ae3320ed-pf25 //主机名 
+
+node affinity, which allows you to tell Kubernetes to schedule pods only to specific subsets of nodes.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubia-gpu
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution: //required,强制性亲缘性规则 
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: gpu         //标签为 gpu 值为 true 
+            operator: In
+            values:
+            - "true"
+
+nodeSelectorTerms 和matchExpressions 字段，这两个宇段定义了节点的标签必须满足哪一种表达式，
+才能满足pod 调度的条件
+
+给节点加上标签，首先，节点必须加上合适的标签。每个节点需要包含两个标签， 一个用于表示
+所在的这个节点所归属的可用性区域，另一个用于表示这是一个独占的节点还是一
+个共享的节点。
+$ kubectl label node node1.k8s availability-zone=zone1
+node "node1.k8s" labeled
+$ kubectl label node node1.k8s share-type=dedicated
+node "node1.k8s" labeled
+$ kubectl label node node2.k8s availability-zone=zone2
+node "node2.k8s" labeled
+$ kubectl label node node2.k8s share-type=shared
+node "node2.k8s" labeled
+$ kubectl get node -L availability-zone -L share-type
+NAME         STATUS    AGE       VERSION   AVAILABILITY-ZONE   SHARE-TYPE
+master.k8s   Ready     4d        v1.6.4    <none>              <none>
+node1.k8s    Ready     4d        v1.6.4    zone1               dedicated
+node2.k8s    Ready     4d        v1.6.4    zone2               shared
+
+//p475 gke运行 出错 
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: pref
+spec:
+  template:
+    ...
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution: #优先级节点亲缘
+          - weight: 80
+            preference:
+              matchExpressions:
+              - key: availability-zone
+                operator: In
+                values:
+                - zone1
+          - weight: 20
+            preference:
+              matchExpressions:
+              - key: share-type
+                operator: In
+                values:
+                - dedicated
+      ...
+按照优先级，节点可被调度到带有这些标签的节点(排列组合）：
+zone1/dedicated,zone1/shared,zone2/dedicated,zone2/shared
+除了节点亲缘性的优先
+级函数，调度器还是使用其他的优先级函数来决定节点被调度到哪。其中之一就是
+Selector SpreadPriority函数，这个函数确保了属于同一个ReplicaSet或者
+Service 的pod,将分散部署在不同节点上，以避免单个节点失效导致这个服务也宅机。
+这就是有1个pod被调度到node2 的最大可能。
+
+16.3 使用pod亲缘性与非亲缘性对pod进行协同部署
+$ kubectl run backend -l app=backend --image busybox -- sleep 999999
+deployment "backend" created
+
+如果现在你删除了后端pod, 调度器会将该pod 调度到node2, 即
+便后端pod 本身没有定义任何pod 亲缘性规则（只有前端pod 设置了规则）。这种
+情况很合理， 因为假设后端pod 被误删除而被调度到其他节点上， 前端pod 的亲缘
+性规则就被打破了。
+
+16.3.2 将pod部署在同一机柜、可用性区域或者地理地域
+了解topologyKey是如何工作的
+//选择一个与正在被部署pod的label selector匹配的pod, 再查看结果pod所在的node的lablel,该node
+//lable要匹配topologyKey域
+When the Scheduler is deciding where to deploy a pod, it checks the pod’s pod-Affinity config, 
+finds the pods that match the label selector, and looks up the nodes they’re running on. Specifically, 
+it looks up the nodes’ label whose key matches the topologyKey field specified in podAffinity. 
+Then it selects all the nodes whose label matches the values of the pods it found earlie
+
+在同一个可用性区域中协同部署pod
+topologyKey属性设置为failure-domain.beta.kubernetes.io/zone,
+
+在同—个地域中协同部署pod
+topologyKey属性设置为failure-domain.beta.kubernetes.io/region
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 5
+  template:
+    ...
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 80
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: backend
+      containers: ...
+
+16.3.4 利用pod的非亲缘性分开调度pod
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 5
+  template:
+    ...
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 80
+            podAffinityTerm:                 #podAffinityTerm
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: backend
+      containers: ...
