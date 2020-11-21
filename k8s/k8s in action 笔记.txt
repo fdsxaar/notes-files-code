@@ -185,7 +185,7 @@ curl 172.17.0.3:8080 //与一个pod沟通
 //一次性客户端连接pod
 kubectl run --image=tutum/curl -it --restart=Never --rm client-pod curl 10.244.2.4:8080
 kubectl run --image=tutum/curl -it --restart=Never --rm client-pod curl 172.17.0.6:8080
-
+kubectl run --image=tutum/curl -it --restart=Never --rm client-pod curl http://kubia.default.svc.cluster.local
 This command runs a pod with a single container created from the tutum/curl image.
  You can also use any other image that provides the curl binary executable. The -it 
  option attaches your console to the container’s standard input and output, 

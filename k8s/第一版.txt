@@ -1,5 +1,708 @@
 k8s in action 1st edition 
 
+—————————————————————————————————————————————C3——————————————————————————————————
+3.3.1 介绍标签
+标签是可以附加到资源的任意键值对，用以选择具有该确切标签的资源（这是通过标答选择器完成的）
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubia-manual-v2
+  labels:
+    creation_method: manual //标签键值对 
+    env: prod
+
+spec:
+  containers:
+  - image: luksa/kubia
+    name: kubia
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+//显示标签
+$ kubectl get po --show-labels
+NAME            READY  STATUS   RESTARTS  AGE LABELS
+kubia-manual    1/1    Running  0         16m <none>
+kubia-manual-v2 1/1    Running  0         2m  creat_method=manual,env=prod
+kubia-zxzij     1/1    Running  0         1d  run=kubia
+
+$ kubectl get po -L creation_method,env //-L 按列列出标签 
+//手动打标签
+$ kubectl label po kubia-manual creation_method=manual
+pod "kubia-manual" labeled
+
+3.4 通过标签选择器列出pod子集
+标签要与标签选
+择器结合在一起。标签选择器允许我们选择标记有特定标签的pod子集， 并对这些
+pod执行操作。
+$ kubectl get po -l creation_method=manual
+$ kubectl get po -l '!env'  #用单引号 
+kubectl get po -l creation_method!=manual
+kubectl get po -l 'env in (prod,devel)'
+kubectl get po -l 'env notin (prod,devel)' #即使pod没有env标签也能筛选 
+//下面的说法与上面一行的实践不符 
+//env notin (prod,devel) to select pods with the env label set to any value other than prod or devel
+
+在包含多个逗号分隔的清况下， 可以在标签选择器中同时使用多个条件， 此时
+资源需要全部匹配才算成功匹配了选择器
+app=pc, rel=beta
+3.5 使用标签和选择器来约束pod调度
+#给节点打标签
+$ kubectl label node gke-kubia-85f6-node-Orrx gpu=true
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubia-gpu
+spec:
+  nodeSelector:          //节点选择器,将pod调度到标签为 gpu=ture的节点上 
+
+    gpu: "true"
+
+  containers:
+  - image: luksa/kubia
+    name: kubia
+
+3.6 注解pod
+$ kubectl annotate pod kubia-manual mycompany.com/someannotation="foo bar"
+pod "kubia-manual" annotated
+
+3.7 使用命名空间对资源进行分组
+$ kubectl get ns
+$ kubectl get po --namespace kube-system  # -n=--namespace 
+
+#用yaml文件创建命名空间 
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: custom-namespace
+
+$ kubectl create namespace custom-namespace
+namespace "custom-namespace" created
+Although most objects’ names must conform to the naming conventions specified in RFC 1035 
+(Domain names), which means they may contain only letters, digits, dashes, and dots, namespaces 
+(and a few others) aren’t allowed to contain dots
+如果想要在刚创建的命名空间中创建资源，可以选择在metadata 宇段中添加
+一个namespace : custom-namespace 属性，也可以在使用kubectl create
+命令创建资源时指定命名空间：
+$ kubectl create -f kubia-manual.yam1 -n custom-nameespace
+pod "kubia-manual" created
+
+#切换命名空间
+To quickly switch to a different namespace, you can set up the following alias: 
+alias kcd='kubectl config set-context $(kubectl config current-context) --namespace '. 
+You can then switch between namespaces using kcd some-namespace.
+
+尽管命名空间将对象分隔到不同的组，只允许你对属于特定命
+名空间的对象进行操作， 但实际上命名空间之间并不提供对正在运行的对象的任何
+隔离。
+
+———————————————————————————————————————————————————————C4————————————————————————————————————————
+4.2 了解ReplicationController
+4.2.1 ReplicationController廿勺扲令作
+ReplicationController会持续监控正在运行的pod列表， 并保证相应” 类型” 的
+pod的数目与期望相符。如正在运行的pod太少， 它会根据pod模板创建新的副本。
+如正在运行的pod太多， 它将删除多余的副本
+了解ReplicationController的三部分
+一个ReplicationController有三个主要部分（如图4.3所示）：
+• label selector (标签选择器）， 用于确定ReplicationController作用域中有哪些
+pod
+• replica count (副本个数）， 指定应运行的pod数量
+• pod template (pod模板）， 用于创建新的pod 副本
+
+更改标签选择器和pod 模板对现有pod 没有影响。更改标签选择器会使现有的
+pod 脱离ReplicationController 的范围， 因此控制器会停止关注它们。在创建pod 后，
+ReplicationController 也不关心其pod的实际“ 内容”（容器镜像、环境变量及其他）。
+因此， 该模板仅影响由此ReplicationController 创建的新pod。可以将其视为创建新
+pod的曲奇切模(cookie cutter) 。
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: kubia
+spec:
+  replicas: 3
+  selector:     #selector
+    app: kubia
+  template:
+
+    metadata:
+
+      labels:
+
+        app: kubia
+
+    spec:
+
+      containers:
+
+      - name: kubia
+
+        image: luksa/kubia
+
+        ports:
+
+        - containerPort: 8080
+4.3 使用ReplicaSet而不是ReplicationController
+ReplicaSet 的行为与ReplicationController 完全相同， 但pod 选择器的表达能力
+更强。
+
+apiVersion: apps/v1beta2
+kind: ReplicaSet
+metadata:
+  name: kubia
+spec:
+  replicas: 3
+  selector:
+    matchLabels:  #matchLabels 
+      app: kubia
+  template:
+    metadata:
+      labels:
+        app: kubia
+    spec:
+      containers:
+      - name: kubia
+        image: luksa/kubia
+ReplicaSet 相对于ReplicationController 的主要改进是它更具表达力的标签选
+择器；
+selector:
+   matchExpressions:
+     - key: app
+       operator: In
+       values:
+         - kubia
+ 四个有效的运算符：
+• In : Label的值必须与其中一个指定的values 匹配。
+• Notln : Label的值与任何指定的values 不匹配。
+• Exists : pod 必须包含一个指定名称的标签（值不重要）。使用此运算符时，
+不应指定values字段。
+• DoesNotExist : pod不得包含有指定名称的标签。values属性不得指定。        
+
+4.4 使用DaemonSet在每个节点上运行一个pod
+
+To run a pod on all cluster nodes, you create a DaemonSet object, which is much like a ReplicationController 
+or a ReplicaSet, except that pods created by a DaemonSet already have a target node specified and skip the 
+Kubernetes Scheduler. They aren’t scattered around the cluster randomly.
+
+4.4.2 使用DaemonSet 只在特定的节点上运行pod
+DaemonSet 将pod 部署到集群中的所有节点上，除非指定这些pod 只在部分节
+点上运行。这是通过pod 模板中的nodeSelector 属性指定的，这是DaemonS et
+定义的一部分
+
+//Daemon Set的特殊性
+注意在本书的后面，你将了解到节，点可以被设置为不可调度的， 防止pod 被部
+署到节，是上。DaemonSet 甚至会将pod 部署到这些节，主上，因为无法调度的属性只
+会被调度器使用，而Daemon Set 管理的pod 则完全绕过调度器。这是预期的，因为
+DaemonSet 的目的是运行系统服务，即使是在不可调度的节点上，系统服务通常也
+需要运行。
+apiVersion: apps/v1beta2
+kind: DaemonSet
+metadata:
+  name: ssd-monitor
+spec:
+  selector:
+    matchLabels:
+      app: ssd-monitor #节点选择器 
+  template:
+    metadata:
+      labels:
+        app: ssd-monitor 
+    spec:
+      nodeSelector:
+        disk: ssd
+      containers:
+      - name: main
+        image: luksa/ssd-monitor
+#覆写label会删除之前部署的pod  
+$ kubectl label node minikube disk=ssd
+node "minikube" labeled
+
+4.5 运行执行单个任务的pod
+到目前为止， 我们只谈论了需要持续运行的pod。你会遇到只想运行完成工作
+后就终止任务的清况。ReplicationController 、ReplicaSet和DaemonSet 会持续运行任
+务， 永远达不到完成态。这些pod 中的进程在退出时会重新启动。但是在一个可完
+成的任务中， 其进程终止后， 不应该再重新启动。
+
+Kubemetes 通过Job 资源提供了对此的支持， 这与我们在本章中讨论的其他资
+源类似， 但它允许你运行一种pod, 该pod 在内部进程成功结束时， 不重启容器。
+一旦任务完成， pod 就被认为处千完成状态。
+
+在发生节点故障时，该节点上由Job 管理的pod将按照ReplicaSet 的pod 的方式，
+重新安排到其他节点。如果进程本身异常退出（进程返回错误退出代码时）， 可以
+将Job 配置为重新启动容器。
+
+可以在未
+托管的pod 中运行任务并等待它完成， 但是如果发生节点异常或pod 在执行任务时
+被从节点中逐出， 则需要手动重新创建该任务。
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: batch-job
+spec:
+  template:
+    metadata:
+      labels:
+        app: batch-job  #不是标签选择器，将会基于模板中的标签被创建
+    spec:
+      restartPolicy: OnFailure #不能重启，设为OnFailure或Never 
+      containers:
+      - name: main
+        image: luksa/batch-job
+
+$k get pod jobs 
+完成后pod未被删除的原因是允许你查阅其日志。例如：
+$ kubectl logs batch-job-28qf4
+Fri Apr 29 09:58:22 UTC 2016 Batch job starting
+Fri Apr 29 10: 00: 22 UTC 2016 Finished succesfully
+pod 可以被直接删除， 或者在删除创建它的Job时被删除
+
+4.5.4 在Job中运行多个pod实例
+作业可以配置为创建多个pod实例， 并以并行或串行方式运行它们。这是通过
+在Job配置中设置comple巨ons和parallelism属性来完成的
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: multi-completion-batch-job
+spec:
+  completions: 5             #顺序运行5个pod 
+  template:
+    <template is the same as in listing 4.11>
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: multi-completion-batch-job
+spec:
+  completions: 5
+  parallelism: 2               #最多并行两个pod
+  template:
+    <same as in listing 4.11>
+
+通过在pod 配置中设置activeDeadlineSeconds 属性，可以限制pod的时间。
+如果pod 运行时间超过此时间， 系统将尝试终止pod, 并将Job 标记为失败。
+注意通过指定Job manifest 中的spec.backoff巨m辽字段， 可以配置Job
+在被标记为失败之前可以重试的次数。如果你没有明确指定它， 则默认为6。
+
+4.6 安排Job定期运行或在将来运行一次
+运行任务的时间表以知名的cron 格式指定
+
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: batch-job-every-fifteen-minutes
+spec:
+  schedule: "0,15,30,45 * * * *"  #每天 每小时 的 0 15 30 45 分钟运行
+  jobTemplate:                    # 分钟 小时 天 月 周 命令 , 从右向左看，剩下的都是分钟 
+    spec:
+      template:
+        metadata:
+          labels:
+            app: periodic-batch-job
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: main
+            image: luksa/batch-job
+
+在计划的时间内，CronJob资源会创建Job资源，然后Job创建pod。
+apiVersion: batch/v1beta1
+kind: CronJob
+spec:
+  schedule: "0,15,30,45 * * * *"
+  startingDeadlineSeconds: 15  #任务启动的截至日期，若不启动则失败
+  ...
+
+#幂等任务 
+In normal circumstances, a CronJob always creates only a single Job for each execution configured in 
+the schedule, but it may happen that two Jobs are created at the same time, or none at all. To combat 
+the first problem, your jobs should be idempotent (running them multiple times instead of once shouldn’t 
+lead to unwanted results). For the second problem, make sure that the next job run performs any work that 
+should have been done by the previous (missed) run.
+
+——————————————————————————————————————————————————C5——————————————————————————————————————————————
+Chapter 5. Services: enabling clients to discover and talk to pods
+#给端口命名 
+kind: Pod
+spec:
+  containers:
+  - name: kubia
+    ports:
+    - name: http
+      containerPort: 8080
+    - name: https
+      containerPort: 8443
+
+#在服务中引用端口 
+apiVersion: v1
+kind: Service
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  - name: https
+    port: 443
+    targetPort: https
+即使更换端口号也无须更改服务spec 
+
+5.1.2 服务发现
+通过环境变量发现服务
+#服务要先于pod创建或在服务创建后，pod重新启动 
+$ kubectl exec kubia-3inly env
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HOSTNAME=kubia-3inly
+KUBERNETES_SERVICE_HOST=10.111.240.1
+KUBERNETES_SERVICE_PORT=443
+...
+KUBIA_SERVICE_HOST=10.111.249.153
+KUBIA_SERVICE_PORT=80
+...
+
+通过DNS 发现服务
+还记得第3 章中在kube - system 命名空间下列出的所有pod 的名称吗？其中
+一个po d 被称作kube-dns ，当前的kube - system 的命名空间中也包含了一个具
+有相同名字的响应服务。
+就像名字的暗示， 这个pod 运行DNS 服务，在集群中的其他pod 都被配置成
+使用其作为dns ( Kubemetes 通过修改每个容器的／ etc/reso l v . conf 文件实现）。
+运行在pod 上的进程DNS 查询都会被Kubemetes 自身的DNS 服务器响应， 该服务
+器知道系统中运行的所有服务。
+注意pod 是否使用内部的DNS 服务器是根据pod 中spec 的dnsPolicy 属性
+来决定
+
+每个服务从内部DNS 服务器中获得一个DNS 条目， 客户端的pod 在知道服务
+名称的情况下可以通过全限定域名CFQDN ）来访问，而不是诉诸于环境变量。
+
+通过FQDN 连接服务
+前端p o d 可以通过打开以下FQDN 的连接来访问
+后端数据库服务：
+backend database.default svc cluster. l ocal
+backend- database 对应于服务名称， default 表示服务在其中定义的名称
+空间，而svc.cluster.l ocal 是在所有集群本地服务名称中使用的可配置集群
+域后缀。
+如果前端pod 和数据库pod 在同一个命名
+空间下，可以省略svc.cluster . local 后缀，甚至命名空间
+#实践失败, 要创建另一个pod
+root@kubia-3inly:/# curl http://kubia.default.svc.cluster.local
+You've hit kubia-5asi2
+
+root@kubia-3inly:/# curl http://kubia.default
+You've hit kubia-3inly
+
+root@kubia-3inly:/# curl http://kubia
+You've hit kubia-8awf3
+
+$ kubect1 get endpoints kubia
+$ kubectl describe svc kubia
+Name:                kubia
+Namespace:           default
+Labels:              <none>
+Selector:            app=kubia
+Type:                ClusterIP
+IP:                  10.111.249.153
+Port:                <unset> 80/TCP
+Endpoints:           10.108.1.4:8080,10.108.2.5:8080,10.108.2.6:8080 #pod 的IP 
+Session Affinity:    None
+No events.
+
+5.2.2 手动配置服务的endpoint
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-service
+spec:
+  ports:
+  - port: 80
+上面external-service与下面的external-service必须一致 
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: external-service
+subsets:
+  - addresses:
+    - ip: 11.11.11.11
+    - ip: 22.22.22.22
+    ports:
+    - port: 80
+
+5.2.3 为外部服务创建别名fully qualified domain name (FQDN).
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-service
+spec:
+  type: ExternalName  #类型为ExternalName
+  externalName: someapi.somecompany.com #实际的服务FQDN
+  ports:
+  - port: 80
+
+After the service is created, pods can connect to the external service through the 
+external-service.default.svc.cluster.local domain name (or even external-service) 
+instead of using the service’s actual FQDN. This hides the actual service name and its location 
+from pods consuming the service, allowing you to modify the service definition and point it to a 
+different service any time later, by only changing the externalName attribute
+//如何做到
+ or by changing the
+ type back to ClusterIP and creating an Endpoints object for the service—either manually or by 
+ specifying a label selector on the service and having it created automatically.
+//??
+ ExternalName services are implemented solely at the DNS level—a simple CNAME DNS record is created for 
+ the service. Therefore, clients connecting to the service will connect to the external service directly, 
+ bypassing the service proxy completely. For this reason, these types of services don’t even get a cluster IP.
+
+注意CNAME记录指向完全限定的域名而不是数字IP地址。
+
+5.3 将服务暴露给外部客户端
+将服务的类型设置成NodePort-每个集群节点都会在节点上打开一
+个端口， 对于NodePort服务， 每个集群节点在节点本身（因此得名叫
+NodePort)上打开一个端口，并将在该端口上接收到的流量重定向到基础服务。
+该服务仅在内部集群IP 和端口上才可访间， 但也可通过所有节点上的专用端
+口访问。
+• 将服务的类型设置成LoadBalance, NodePort类型的一种扩展一—这使得
+服务可以通过一个专用的负载均衡器来访问， 这是由Kubernetes中正在运行
+的云基础设施提供的。负载均衡器将流量重定向到跨所有节点的节点端口。
+客户端通过负载均衡器的IP 连接到服务。
+• 创建一个Ingress资源， 这是一个完全不同的机制， 通过一个IP地址公开多
+个服务——它运行在HTTP 层（网络协议第7 层）上， 因此可以提供比工作
+在第4层的服务更多的功能。我们将在5.4节介绍Ingress资源。
+
+#本质是在所有节点上曝光了一个相同的端口，不好的实践，应该采用负载均衡svc
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubia-nodeport
+spec:
+  type: NodePort
+  ports:
+  - port: 80    #服务的internal cluster IP 的port 
+    targetPort: 8080 #背后的pod的port
+    nodePort: 30123 #通过集群的每个nodes的30123端口和获取到服务 
+  selector:
+    app: kubia
+
+$ kubectl get svc kubia-nodeport
+NAME             CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+kubia-nodeport   10.111.254.223   <nodes>       80:30123/TCP   2m
+#找出节点的external IP 通过30123访问 
+The service is accessible at the following addresses:
+10.111.254.223:80 #集群IP 
+<1st node's IP>:30123
+<2nd node's IP>:30123, and so on.
+
+
+ k apply -f kubia-svc-nodeport.yaml
+  gcloud compute firewall-rules create kubia-svc-rule --allow=tcp:30123 #设置GKE防火墙 
+
+ kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="ExternalIP")].address}'
+ https://kubernetes.io/docs/reference/kubectl/jsonpath/
+
+使用Minikube时，可以运行minikube sevrvice <service-name> [-n
+<name space>]命令， 通过浏览器轻松访问NodePort服务
+
+5.3.2 通过负载均衡器将服务暴露出来
+LoadBadancer服务是NodePo江服务的扩展
+
+可以通过将服务配置为仅将外部通信重定向到接收连接的节点上运行的pod来
+阻止此额外跳数。这是通过在服务的spec部分中设置externalTrafficPo巨cy
+字段来完成的：
+spec:
+externalTrafficPolicy: Local 
+如果没有本地pod存在， 则连接将挂起;
+// Source Network Address Translation
+//??
+记住客户端IP是不记录的
+通常， 当集群内的客户端连接到服务时， 支持服务的pod可以获取客户端的IP
+地址。但是， 当通过节点端口接收到连接时， 由于对数据包执行了源网络地址转换
+(SNAT), 因此数据包的源IP将发生更改。
+后端的pod无法看到实际的客户端IP, 这对于某些需要了解客户端IP的应用
+程序来说可能是个问题。例如， 对千Web服务器， 这意味着访问日志无法显示浏览
+器的IP。
+上一节中描述的local外部流量策略会影响客户端IP的保留， 因为在接收连
+接的节点和托管目标pod的节点之间没有额外的跳跃（不执行SNAT)。
+
+5.4 通过Ingress暴露服务
+为什么需要Ingress
+一个重要的原因是每个LoadBalancer 服务都需要自己的负载均衡器， 以及
+独有的公有IP 地址， 而Ingress 只需要一个公网IP 就能为许多服务提供访问。当客
+户端向Ingress 发送HTTP 请求时， Ingress 会根据请求的主机名和路径决定请求转
+发到的服务，
+
+只有Ingress控制器在集群中运行，
+Ingress 资源才能正常工作。
+
+$ minikube addons list
+$ minikube addons enable ingress
+$ kubectl get po --all-namespaces
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: kubia
+spec:
+  rules:
+  - host: kubia.example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: kubia-nodeport // 到达kubia.example.com的连接全部转发到 kubia-nodeport的80端口 
+          servicePort: 80
+k get ingresses.networking.k8s.io kubia
+在／ ect / h o sts 文件（ Windows 系统为C : \windows\system32\
+drivers\etc\hosts ） 中添加下面一行内容：
+192 168.99.100 kubia.example.com
+echo 34.98.107.163 kubia.example.com >> /etc/hosts #GKE 授权失败 
+
+图5.1 0 显示了客户端如何通过Ingres s 控制器连接到其中一个po d 。客户端首
+先对kubi a. example.com 执行DNS 查找， DNS 服务器（或本地操作系统）返回了
+Ingress 控制器的IP 。客户端然后向Ingress 控制器发送HTTP 请求，并在Host 头
+中指定kubia . example.com 。控制器从该头部确定客户端尝试访问哪个服务，通
+过与该服务关联的E ndpo int 对象查看pod IP ， 并将客户端的请求转发给其中一个
+p od 。
+如你所见， Ingress 控制器不会将请求转发给该服务，只用它来选择一个pod 。
+大多数（即使不是全部）控制器都是这样工作的。
+
+将不同的服务映射到相同主机的不同路径
+...
+  - host: kubia.example.com
+    http:
+      paths:
+      - path: /kubia
+        backend:
+          serviceName: kubia
+          servicePort: 80
+      - path: /bar
+        backend:
+          serviceName: bar
+          servicePort: 80
+
+spec:
+  rules:
+  - host: foo.example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: foo
+          servicePort: 80
+  - host: bar.example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: bar
+          servicePort: 80
+
+5.4.4 配置Ingress 处理TLS 传输
+当客户端创建到Ingress 控制器的TLS 连接时，控制器将终止TLS 连接。客户
+端和控制器之间的通信是加密的，而控制器和后端pod 之间的通信则不是。运行在
+pod 上的应用程序不需要支持TLS 。例如，如果pod 运行web 服务器，则它只能接
+收HTTP 通信，并让Ingress 控制器负责处理与TLS 相关的所有内容。要使控制器
+能够这样做，需要将证书和私钥附加到Ingress 。这两个必需资源存储在称为Secret
+的Kubernetes 资源中，然后在Ingress manifest 中引用它。
+
+5.5.1 介绍就绪探针
+Kubernetes 只能检查在容器
+中运行的应用程序是否响应一个简单的GET／请求，或者它可以响应特定的URL 路
+径（该URL 导致应用程序执行一系列检查以确定它是否准备就绪） 。
+
+与存活探针不同，如果容器未通过准备检查，则不会被终止或重新启动。这是
+存活探针与就绪探针之间的重要区别。存活探针通过杀死异常的容器并用新的正常
+容器替代它们来保持pod 正常工作，而就绪探针确保只有准备好处理请求的pod 才
+可以接收它们（请求）。这在容器启动时最为必要， 当然在容器运行一段时间后也
+是有用的。
+
+可以通过kubectl ed江命令来向已存在的ReplicationController中的pod模
+板添加探针。
+$ kubectl edit re kubia
+
+更改ReplicationController的
+pod模板对现有的pod没有影响。
+换句话说， 现有的所有pod仍没有定义准备就绪探针。可以通过使用
+kubectl get pods列出pod并查看READY列。需要删除pod并让它们通过
+ReplicationController重新创建。新的pod将进行就绪检查会一直失败，并且不会将
+其作为服务的端点，直到在每个pod中创建/var/ready文件
+$ kubectl edit re kubia
+apiVersion: v1
+kind: ReplicationController
+...
+spec:
+  ...
+  template:
+    ...
+    spec:
+      containers:
+      - name: kubia
+        image: luksa/kubia
+        readinessProbe:
+          exec:
+            command:   #文件存在则返回退出码0 
+            - ls
+            - /var/ready
+        ...
+
+$ kubect1 exec kubia-2rlqb -- touch /var/ready
+提示如果想要从某个服务中手动添加或删除pod, 请将enabled=true 作为
+标签添加到pod, 以及服务的标签选择器中。当想要从服务中移除pod 时，删除标签
+
+5.6 使用headless服务来发现独立的pod
+幸运的是， Kubemetes 允许客户通过DNS 查找发现pod IP。通常， 当执行服
+务的DNS 查找时， DNS 服务器会返回单个IP一服务的集群IP。但是， 如果告诉
+Kubemetes, 不需要为服务提供集群IP (通过在服务spec 中将clusterIP 字段设
+置为None 来完成此操作）， 则DNS 服务器将返回pod IP 而不是单个服务IP
+
+DNS 服务器不会返回单个DNS A记录， 而是会为该服务返回多个A记录， 每
+个记录指向当时支持该服务的单个pod的IP。客户端因此可以做一个简单的DNS A
+记录查找并获取属于该服务一部分的所有pod 的IP。客户端可以使用该信息连接到
+其中的一个、多个或全部。
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubia-headless  #使得服务headless 
+spec:
+  clusterIP: None
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: kubia
+
+nslookup (or the dig) binary
+Docker Hub上提供的tutum/dnsutils 容器镜像， 它包含nslookup和dig二
+进制文
+$ kubectl run dnsutils --image=tutum/dnsutils --generator=run-pod/v1 --command -- sleep infinity
+pod "dnsutils" created
+--generator=run-pod/vl 选项中， 该选项让kubect1直接创建pod
+理解headless 服务的DNSA记录解析
+$ kubectl exec dnsutils nslookup kubia-headless #返回pod ip
+Server:         10.124.0.10
+Address:        10.124.0.10#53
+Non-authoritative answer:
+Name:   kubia-headless.default.svc.cluster.local
+Address: 10.120.2.35
+Name:   kubia-headless.default.svc.cluster.local
+Address: 10.120.0.42
+
+$ kubectl exec dnsutils nslookup kubia
+Server:         10.124.0.10
+Address:        10.124.0.10#53
+
+Name:   kubia.default.svc.cluster.local
+Address: 10.124.3.80
+
+使用DNS查找机制来查
+找那些未准备好的pod。要告诉Kubemetes无论pod的准备状态如何， 希望将所有
+pod 添加到服务中。必须将以下注解添加到服务中：
+kind: Service
+metadata:
+annotations:
+service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+警告就像说的那样， 注解名称表明了这是一个alpha功能。KubernetesService
+API已经支待一个名为publishNotReadyAddresses 的新服务规范字段， 它将
+替换tolerate-unready-endpoints注
+
+———————————————————————————————————————————————————————C7————————————————————————————————————————
 第七章 
 7.3 为容器设置环境变量
 //覆盖参数
@@ -595,11 +1298,9 @@ $ kubectl run -it srvlookup --image=tutum/dnsutils --rm --restart=Never -- dig S
 //在应用程序内调用函数访问集群内的pod
 dns.resolveSrv();
 
-
-
-
 //使用端口转发， 
 k port-forward kubia-0  8888:8080
+
 
 缩容一个Statefulset, 然后在完成后再扩容它， 与删除一个pod后让Statefulset
 立马重新创建它的表现是没有区别的;
