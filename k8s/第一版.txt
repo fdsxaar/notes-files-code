@@ -2208,3 +2208,293 @@ spec:
                 matchLabels:
                   app: backend
       containers: ...
+
+
+
+——————————————————————————————————————C17——————————————————————————————————---
+Chapter 17. Best practices for developing apps
+除了标签，大多数的资源还包含一个描述资源的注解，列出负责该资
+源的人员或者团队的联系信息，或者为管理者和其他的工具提供额外的元数据。
+
+17.2 了解pod 的生命周期
+//无状态应用
+应用开发者必须允许他们的应用可以被相对频繁地迁移。
+
+有状态应用可以通过一个S tatefu!Set 来
+运行， S tatefu!Set 会保证在将应用调度到新的节点并启动之后，它可以看到和之前
+一样的主机名和持久化状态。当然pod 的IP 还是会发生变化，应用必须能够应对这
+种变化。因此应用开发者在一个集群应用中不应该依赖成员的四地址来构建彼此的
+关系，另外如果使用主机名来构建关系，必须使用Statefu !Set 。
+
+ReplicaSet 本身并不关心pod 是否
+处于死亡状态，它只关心pod 的数量是否匹配期望的副本数量，在这种情况下，副
+本数量确实是匹配的。
+
+//POD 正在running不能说明容器也成功running 
+容器将会每5分钟重启
+一次，在这个过程中Kubemetes期望崩溃的底层原因会被解决。这个机制依据的基
+本原理就是将pod重新调度到其他节点通常并不会解决崩溃的问题，因为应用运行
+在容器的内部，所有的节点理论上应该都是相同的
+
+Kubemetes API服务器确实是按照YAML/JSON文件中定义的对象的顺序来进
+行处理的，但是仅仅意味着它们在被写入到etcd的时候是有顺序的。
+
+//将重要的关闭流程替换为专注于关闭流程的pod
+一个解决方案是让应用（在接收到终止信号的时候）创建一个新的Job资源，
+这个Job资源会运行一个新的pod, 这个pod唯一的工作就是把被删除的pod的数
+据迁移到仍然存活的pod。但是如果你注意到的话， 你就会了解你无法保证应用每
+次都能够成功创建这个Job对象。万一当应用要去创建Job的时候节点出现故障呢？
+这个问题的合理的解决方案是用一个专门的持续运行中的pod 来持续检查是否
+存在孤立的数据。当这个pod发现孤立的数据的时候， 它就可以把它们迁移到仍存
+活的pod。当然不一定是一个持续运行的pod, 也可以使用CronJob资源来周期性地
+运行这个pod。
+
+//对于stateful set , app upgrade时会删除旧pod 创建新 pod  ， 当cronjos等待时， 新的pod重新绑定到持久卷
+你或许以为Statefu!Set在这里会有用处， 但实际上并不是这样。如你所记
+起的那样， 给StatefulSet缩容会导致PersistentVolumeClaim处于孤立状态， 这会
+导致存储在PersistentVolumeClaim 中的数据搁浅。当然， 在后续的扩容过程中，
+Persistent Volume会被附加到新的pod实例中， 但是万一这个扩容操作永远不会发生
+（或者很久之后才会发生）呢？因此， 当你在使用Statefu!Set的时候或许想运行一个
+数据迁移的pod (这种场景如图17.6所示）。为了避免应用在升级过程中出现数据
+迁移， 专门用于数据迁移的pod可以在数据迁移之前配置一个等待时间， 让有状态
+的pod有时间启动起来。
+
+17.3 确保所有的客户端请求都得到了妥善处理
+你需要做的是当且仅当你的应用准备好处理进来的请求的时候， 才去让就绪探
+针返回成功。好的实践第一步是添加一个指向应用根URL 的HTTP GET 请求的就
+绪探针
+
+等待足够长的时间让所有的kube-proxy 可以完成它们的工作。
+简要概括一下，妥善关闭一个应用包括如下步骤：
+·等待几秒钟，然后停止接收新的连接。
+·关闭所有没有请求过来的长连接。
+·等待所有的请求都完成。
+·然后完全关闭应用
+lifecycle:
+      preStop:
+        exec:
+          command:
+          - sh
+          - -c
+          - "sleep 5"
+
+17.4 让应用在Kubernetes 中方便运行和管理
+如果你使用Go 语言来构建应用，你的镜像除了应用的可执行二进制文件
+外不需要任何东西。这样基于Go 语言的容器镜像就会非常小，很适合Kubemetes 。
+提示在这些镜像的Dockerfi l e 中使用FROM scratch 指令
+
+必须使用能够指明具体版本的标签而不是latest 。记住如果你使用的
+是可更改的标签（总是向相同的标签推送更改），那么你需要在pod spec 中将
+imagePullPolicy 设置为Always
+
+17.4.3 使用多维度而不是单维度的标签
+别忘了给所有的资源都打上标签，而不仅仅是pod
+17.4.4 通过注解描述每个资源
+可以使用注解来给你的资源添加额外的信息
+
+17.4.5 给进程终止提供更多的信息
+可以让容器中的进程向容器的文件系
+统中指定文件写入一个终止消息。这个文件的内容会在容器终止后被Kubelet 读取，
+然后显示在kubectl describe pod 中;进程需要写入终止消息的文件默认路径是／dev/term ination-log，当然这个
+路径也可以在pod spec 中容器定义的部分设置terminationMessagePath 宇段
+来自定义
+
+这个机制并不仅仅适用于崩溃的容器。
+如果容器皮有向任何文件写入消息，可以将迳rmina巨onMessage
+Policy字段的值设置为FallbackToLogsOnError。在这种情况下，容器的最
+后几行日志会被当作终止消息（当然仅当容器没有成功终止的情况下）。
+
+17.4.6 处理应用日志
+$ kubectl exec <pod> cat <logfile> //查看日志 
+
+//来回复制日志
+//-c containerName option. 指定容器
+$ kubectl cp foo-pod:/var/log/foo.log foo.log
+$ kubectl cp localfile foo-pod:/etc/remotefile
+//集群级日志解决方案
+在Google 的Kubemetes引擎上， 这个就更加简单
+了。在设置集群的时候选中"Enable Stackdriver Logging"选项即可
+
+//EFK,ELK 
+你或许已经听说过由ElasticSearch、Logstash和Kibana组成的ELK栈。一个
+稍微更改的变种是EFK栈， 其中Logstash 被FluentD替换了。
+当使用EFK作为集中式日志记录的时候， 每个Kubemetes集群节点都会运行
+一个FluentD 的代理（ 通过使用DaemonSet作为pod来部署）， 这个代理负责从容
+器搜集日志， 给日志打上和pod相关的信息， 然后把它们发送给ElasticSearch, 然
+后由ElasticSearch 来永久地存储它们。ElasticSearch在集群中也是作为pod部署
+的。这些日志可以通过Kibana在Web浏览器中查看和分析， K巾ana是一个可视化
+
+//多行日志输出
+为了解决这个问题， 可以让应用日志输出JSON格式的内容而不是纯文本。这
+样的话， 一个多行的日志输出就可以作为一个条目进行存储了， 也可以在Kibana中
+以一个条目的方式显示出来。但是这种做法会让通过kubec七l logs命令查看日
+志变得不太人性化了。
+解决方案或许是输出到标准输出终端的日志仍然是用户可读的日志， 但是写
+入日志文件供FluentD处理的日志是JSON格式。这就要求在节点级别合理地配置
+FluentD代理或者给每一个pod增加一个轻量级的日志记录容器。
+
+连接到后台服务
+在生产环境中， 如果应用连接到后台服务， 并且使用环境变量BACKEND—
+SERVICE—HOST和BACKEND_SERVICE_PORT来查找服务的协调者， 可以很容易
+地在本地机器上手动设置这些环境变量， 并且把它们指向到后台服务， 不管这个后
+台服务是在Kubemetes里面还是外面运行。如果这个服务在Kubemetes里面运行，
+总是可以（至少是临时的） 把这个服务改为NodePo江或者LoadBalancer类型
+来让这个服务对外可访问
+
+如果你正在使用Minikube进行开发， 并且希望在Kubemetes集群中试验应用
+的每个更改， 可以使用mi工kube mount命令将本地的文件系统挂载到Minikube
+VM中， 然后通过一个hostPath卷挂载到容器中。可以在Minikube文档中找到
+更多的使用说明， 文档链接在 htpt s://github.c01n/kubernetes/minikube/tree/ master/docs
+上。
+
+在MinikubeVM中使用DockerDaemon来进行镜像构建，
+将你的DOCKER_HOST环境变量指向它
+$ eval ${minikube docker-env)
+
+在本地构建镜像然后直接复制到Minikube 
+将镜
+像直接复制到MinikubeVM中：
+$ docker save <image> | (eval $(minikube docker-env) && docker load)
+保podspec 中
+的imagePullPo巨cy不要设置为Always, 因为这会导致从外部镜像中心拉取镜
+像， 从而导致你复制过去的镜像的更改丢失
+
+//版本控制系统
+在每次提交更改之后， 可以使用kubectl apply命令将更改反映到部署的资源中
+kube-applier
+
+Ksonnet、Jsonnet工具
+
+
+
+———————————————————————————————————————C18————————————————————————————————————————
+Chapter 18. Extending Kubernetes
+
+18.1.1 CustomResourceDefinitions 介绍
+开发者只需向Kubemetes API 服务器提交CRD 对象， 即可定义新的资源类型。
+成功提交CRD 之后， 我们就能够通过API 服务器提交JSON 清单或YAML 清单的
+方式创建自定义资源，以及其他Kubemetes 资源实例
+
+//这个格式不适用了 
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: websites.extensions.example.com
+spec:
+  scope: Namespaced
+  group: extensions.example.com
+  version: v1
+  names:
+
+    kind: Website
+
+    singular: website
+
+    plural: websites
+
+18.1.2 使用自定义控制器自动定制资源
+
+18.2. Extending Kubernetes with the Kubernetes Service Catalog
+//创建Service Broker
+apiVersion: servicecatalog.k8s.io/v1alpha1
+kind: ClusterServiceBroker
+metadata:
+  name: database-broker
+spec:
+  url: http://database-osbapi.myorganization.org
+在检索服务列表后， 就会为每个服务创建一个ClusterServiceCiass资源。每个
+ClusterServiceClass资源都描述了一种可供应的服务(" Post担·eSQL数据库” 就是
+ClusterServiceClass的一个典型例子）。每个ClusterServiceCiass都有一个或多个与之
+关联的服务方案
+
+//检索服务列表
+$ kubectl get clusterserviceclasses
+NAME                KIND
+postgres-database   ClusterServiceClass.v1alpha1.servicecatalog.k8s.io
+mysql-database      ServiceClass.v1alpha1.servicecatalog.k8s.io
+mongodb-database    ServiceClass.v1alpha1.servicecatalog.k8s.io
+
+//查看服务yaml
+$ kubectl get serviceclass postgres-database -o yaml
+apiVersion: servicecatalog.k8s.io/v1alpha1
+bindable: true
+brokerName: database-broker
+description: A PostgreSQL database
+kind: ClusterServiceClass
+metadata:
+  name: postgres-database
+  ...
+planUpdatable: false
+plans:
+- description: A free (but slow) PostgreSQL instance
+  name: free
+  osbFree: true
+  ...
+- description: A paid (very fast) PostgreSQL instance
+  name: premium
+  osbFree: false
+  ...
+
+18.2.4 提供服务与使用服务
+提供服务实例
+要想预分配数据库，需要做的是创建一个Servicelnstance 资源
+apiVersion: servicecatalog.k8s.io/v1alpha1
+kind: ServiceInstance
+metadata:
+  name: my-postgres-db
+spec:
+  clusterServiceClassName: postgres-database
+  clusterServicePlanName: free
+  parameters:
+    init-db-args: --data-checksums
+
+//查看实例创建结果 
+$ kubectl get instance my-postgres-db -o yaml
+apiVersion: servicecatalog.k8s.io/v1alpha1
+kind: ServiceInstance
+...
+status:
+  asyncOpInProgress: false
+  conditions:
+  - lastTransitionTime: 2017-05-17T13:57:22Z
+    message: The instance was provisioned successfully
+    reason: ProvisionedSuccessfully
+    status: "True"
+    type: Ready
+
+//Binding a ServiceInstance，创建ServiceBindingresource。
+apiVersion: servicecatalog.k8s.io/v1alpha1
+kind: ServiceBinding
+metadata:
+  name: my-postgres-db-binding
+spec:
+  instanceRef:
+    name: my-postgres-db
+  secretName: postgres-secret
+
+在你将ServiceBinding资源从先前的列表提交到服务目录API服务器时， 控制
+器会再次联系数据库代理， 并为之前配置的Servicelnstance创建一个绑定。作为响
+应， 这时候代理会返回以连接到数据库所需的凭证和其他数据。随后， 服务目录会
+使用在ServiceBinding资源中指定的名称创建一个新的Secret, 并将所有数据存储在
+Secret中
+
+在客户端pod中使用新创建的Secret
+$ kubectl get secret postgres-secret -o yaml
+apiVersion: v1
+data:
+  host: <base64-encoded hostname of the database>
+  username: <base64-encoded username>
+  password: <base64-encoded password>
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: default
+  ...
+type: Opaque
+
+$ kubectl delete servicebinding my-postgres-db-binding
+servicebinding "my-postgres-db-binding" deleted
+
+$ kubectl delete serviceinstance my-postgres-db
+serviceinstance "my-postgres-db " deleted
+
